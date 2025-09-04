@@ -11,8 +11,9 @@ const router = express.Router();
 // *!register user
 router.post(
   "/register",
-  validateRequest(UserValidation.CreateUserValidationSchema),
-  userController.createUser
+  // validateRequest(UserValidation.CreateUserValidationSchema),
+  fileUploader.userMutipleFiles,
+  userController.createUser 
 );
 
 // complete profile

@@ -7,7 +7,7 @@ import { userFilterableFields } from "./user.costant";
 import { userService } from "./user.service";
 
 const createUser = catchAsync(async (req: Request, res: Response) => {
-  const result = await userService.createUserIntoDb(req.body);
+  const result = await userService.createUserIntoDb(req);
 
   sendResponse(res, {
     statusCode: httpStatus.OK,

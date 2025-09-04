@@ -14,10 +14,13 @@ import { IUserFilterRequest } from "./user.interface";
 import mongoose from "mongoose";
 
 // Create a new user in the database.
-const createUserIntoDb = async (
-  payload: Partial<IUser> & { confirmPassword: string }
-) => {
-  const { confirmPassword, ...userPayload } = payload;
+const createUserIntoDb = async (req: Request) => {
+  const payload = req.body?.data;
+  if (!payload) {
+    throw new ApiError(400, "Invalid request payload");
+  }
+
+  const { confirmPassword, ...userPayload } = JSON.parse(payload);
   if (confirmPassword !== userPayload.password) {
     throw new ApiError(400, "Password and confirmPassword do not match!");
   }
@@ -36,6 +39,28 @@ const createUserIntoDb = async (
           400,
           `User with this email ${userPayload.email} already exists`
         );
+      }
+
+      const image = !Array.isArray(req.files) ? req.files?.image : undefined;
+      const file = !Array.isArray(req.files) ? req.files?.file : undefined;
+
+      // Handle file uploads - store in appropriate fields with specific folders
+      // Profile image goes to profilePicture field (stored in 'profile-images' folder)
+      if (image && image[0]) {
+        const uploadedImage = await fileUploader.uploadProfileImage(image[0]);
+        userPayload.profilePicture = uploadedImage.Location;
+      }
+
+      // General file goes to file field (stored in 'user-files' folder)
+      if (file && file[0]) {
+        const uploadedFile = await fileUploader.uploadGeneralFile(file[0]);
+        userPayload.file = uploadedFile.Location;
+      }
+
+      // Fallback: if using req.file (single file upload), treat as profile picture
+      if (req.file && !image && !file) {
+        const uploadedImage = await fileUploader.uploadProfileImage(req.file);
+        userPayload.profilePicture = uploadedImage.Location;
       }
 
       const hashedPassword: string = await bcrypt.hash(
@@ -58,6 +83,8 @@ const createUserIntoDb = async (
         email: createdUser[0].email,
         name: createdUser[0].firstName + " " + createdUser[0].lastName,
         role: createdUser[0].role,
+        profilePicture: createdUser[0].profilePicture, // Profile image URL
+        file: createdUser[0].file, // General file URL
         createdAt: createdUser[0].createdAt,
         updatedAt: createdUser[0].updatedAt,
       };

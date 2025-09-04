@@ -52,26 +52,33 @@ const uploadMultipleImage = upload.fields([{ name: "images", maxCount: 15 }]);
 const uploadMultipleFiles = upload.fields([{ name: "files", maxCount: 15 }]);
 
 // Upload profile and banner images
-const updateProfile = upload.fields([
-  { name: "profile", maxCount: 1 },
-  { name: "banner", maxCount: 1 },
+const userMutipleFiles = upload.fields([
+  { name: "file", maxCount: 1 },
+  { name: "image", maxCount: 1 },
 ]);
 
-// ✅ Fixed Cloudinary Upload (Now supports buffer)
+// ✅ Enhanced Cloudinary Upload with better file handling
 const uploadToCloudinary = async (
-  file: Express.Multer.File
+  file: Express.Multer.File,
+  folder: string = "uploads"
 ): Promise<{ Location: string; public_id: string }> => {
   if (!file) {
     throw new Error("File is required for uploading.");
   }
 
   return new Promise((resolve, reject) => {
+    // Generate unique filename
+    const uniqueFilename = `${Date.now()}_${Math.random().toString(36).substring(2)}_${file.originalname.replace(/[^a-zA-Z0-9.]/g, '_')}`;
+    
     const uploadStream = cloudinary.uploader.upload_stream(
       {
-        folder: "uploads",
+        folder: folder,
         resource_type: "auto", // Supports images, videos, etc.
-        use_filename: true,
-        unique_filename: false,
+        public_id: uniqueFilename.split('.')[0], // Remove extension for public_id
+        unique_filename: true,
+        overwrite: false,
+        quality: "auto",
+        fetch_format: "auto"
       },
       (error, result) => {
         if (error) {
@@ -124,15 +131,27 @@ const uploadToDigitalOcean = async (file: Express.Multer.File) => {
   }
 };
 
+// Upload profile image specifically
+const uploadProfileImage = async (file: Express.Multer.File) => {
+  return uploadToCloudinary(file, "profile-images");
+};
+
+// Upload general file
+const uploadGeneralFile = async (file: Express.Multer.File) => {
+  return uploadToCloudinary(file, "user-files");
+};
+
 // ✅ No Name Changes, Just Fixes
 export const fileUploader = {
   upload,
   uploadSingle,
   uploadMultipleFiles,
   uploadMultipleImage,
-  updateProfile,
+  userMutipleFiles,
   uploadFile,
   cloudinaryUpload,
   uploadToDigitalOcean,
   uploadToCloudinary,
+  uploadProfileImage,
+  uploadGeneralFile,
 };
