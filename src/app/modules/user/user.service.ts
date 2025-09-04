@@ -124,7 +124,7 @@ const getUsersFromDb = async (
       firstName: 1,
       lastName: 1,
       email: 1,
-      profileImage: 1,
+      profilePicture: 1,
       role: 1,
       createdAt: 1,
       updatedAt: 1,

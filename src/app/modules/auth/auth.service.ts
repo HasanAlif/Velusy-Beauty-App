@@ -82,11 +82,9 @@ const getMyProfile = async (userId: string) => {
     lastName: 1,
     role: 1,
     phoneNumber: 1,
-    lat: 1,
-    lon: 1,
     status: 1,
     email: 1,
-    profileImage: 1,
+    profilePicture: 1,
     createdAt: 1,
     updatedAt: 1,
   });
@@ -211,8 +209,17 @@ const verifyForgotPasswordOtp = async (payload: {
 const resetPassword = async (
   email: string,
   newPassword: string,
+  confirmPassword: string,
   otp: string
 ) => {
+  // Check if passwords match
+  if (newPassword !== confirmPassword) {
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      "New password and confirm password do not match!"
+    );
+  }
+
   const user = await User.findOne({ email });
 
   if (!user) {

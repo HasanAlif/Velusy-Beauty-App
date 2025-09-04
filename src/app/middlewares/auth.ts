@@ -8,6 +8,14 @@ import ApiError from "../../errors/ApiErrors";
 import { jwtHelpers } from "../../helpars/jwtHelpers";
 import { User } from "../models";
 
+/**
+ * Authentication middleware that supports multiple token sources:
+ * 1. Authorization header: "Bearer <token>"
+ * 2. HTTP-only cookies: "token"
+ * 3. Query parameters: "?token=<token>"
+ * 4. Request body: {"token": "<token>"}
+ * 5. Custom header: "x-auth-token: <token>"
+ */
 const auth = (...roles: string[]) => {
   return async (
     req: Request & { user?: any },
@@ -15,10 +23,34 @@ const auth = (...roles: string[]) => {
     next: NextFunction
   ) => {
     try {
-      const token = req.headers.authorization?.split(" ")[1];
+      let token: string | undefined;
+
+      const authHeader = req.headers.authorization;
+      if (authHeader && authHeader.startsWith("Bearer ")) {
+        token = authHeader.split(" ")[1];
+      }
+
+      if (!token && req.cookies && req.cookies.token) {
+        token = req.cookies.token;
+      }
+
+      if (!token && req.query.token) {
+        token = req.query.token as string;
+      }
+
+      if (!token && req.body && req.body.token) {
+        token = req.body.token;
+      }
+
+      if (!token && req.headers["x-auth-token"]) {
+        token = req.headers["x-auth-token"] as string;
+      }
 
       if (!token) {
-        throw new ApiError(httpStatus.UNAUTHORIZED, "You are not authorized!");
+        throw new ApiError(
+          httpStatus.UNAUTHORIZED,
+          "Authentication token not found! Please provide token via: Authorization header (Bearer), cookies, query params, or x-auth-token header."
+        );
       }
 
       const verifiedUser = jwtHelpers.verifyToken(
