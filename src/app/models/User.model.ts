@@ -14,30 +14,30 @@ export enum UserStatus {
 
 export interface IPortfolio {
   fileUrl: string;
-  fileType: string; // e.g., image, pdf
+  fileType: string;
 }
 
 export interface IUser extends Document {
   _id: string;
   firstName?: string;
   lastName?: string;
-  fullName?: string; // New field
+  fullName?: string;
   userName?: string;
   profession?: string;
-  personalDescription?: string; // New field
+  personalDescription?: string;
   email: string;
   phoneNumber?: string;
   city: string;
   streetAddress: string;
   profilePicture?: string;
   file?: string;
-  schedule?: { [date: string]: { time: string, status: string }[] }; // New field
-  serviceType?: string; // New field
-  serviceCategory?: string; // New field
-  portfolio?: IPortfolio[]; // New field
-  language?: string; // New field
-  certificates?: IPortfolio[]; // New field
-  companyCertificates?: IPortfolio[]; // New field
+  schedule?: { [date: string]: { time: string; status: string }[] };
+  serviceType?: string;
+  serviceCategory?: string;
+  portfolio?: IPortfolio[];
+  language?: string;
+  certificates?: IPortfolio[];
+  companyCertificates?: IPortfolio[];
   password: string;
   role: UserRole;
   status: UserStatus;
@@ -51,7 +51,7 @@ export interface IUser extends Document {
 
 const portfolioSchema = new Schema<IPortfolio>({
   fileUrl: { type: String, required: true },
-  fileType: { type: String, required: true }
+  fileType: { type: String, required: true },
 });
 
 const UserSchema = new Schema<IUser>(
@@ -108,7 +108,7 @@ const UserSchema = new Schema<IUser>(
     },
     schedule: {
       type: Object,
-      default: {} // Key as date, value as array of time slots
+      default: {}, // Key as date, value as array of time slots
     },
     serviceType: {
       type: String,
@@ -120,7 +120,7 @@ const UserSchema = new Schema<IUser>(
     },
     portfolio: {
       type: [portfolioSchema],
-      default: []
+      default: [],
     },
     language: {
       type: String,
@@ -128,11 +128,11 @@ const UserSchema = new Schema<IUser>(
     },
     certificates: {
       type: [portfolioSchema],
-      default: []
+      default: [],
     },
     companyCertificates: {
       type: [portfolioSchema],
-      default: []
+      default: [],
     },
     password: {
       type: String,

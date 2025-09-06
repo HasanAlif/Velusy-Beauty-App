@@ -61,9 +61,51 @@ const userOptionalProfileSchema = z.object({
   specificCategory: z.array(z.string()).optional(),
 });
 
+const updateScheduleValidationSchema = z.object({
+  schedule: z
+    .record(
+      z
+        .string()
+        .regex(/^\d{4}-\d{2}-\d{2}$/, "Date keys must be in YYYY-MM-DD format")
+        .refine(
+          (dateString) => {
+            const inputDate = new Date(dateString);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            return inputDate >= today;
+          },
+          {
+            message: "Cannot schedule dates in the past",
+          }
+        ),
+      z
+        .array(
+          z.object({
+            time: z
+              .string()
+              .regex(/^\d{2}:\d{2}$/, "Time must be in HH:MM format"),
+            status: z.enum(
+              ["AVAILABLE", "BOOKED", "UNAVAILABLE", "NOT_AVAILABLE"],
+              {
+                errorMap: () => ({
+                  message:
+                    "Status must be 'AVAILABLE', 'BOOKED', 'UNAVAILABLE', or 'NOT_AVAILABLE'",
+                }),
+              }
+            ),
+          })
+        )
+        .min(1, "Each date must have at least one time slot")
+    )
+    .refine((schedule) => Object.keys(schedule).length > 0, {
+      message: "Schedule must contain at least one date",
+    }),
+});
+
 export const UserValidation = {
   CreateUserValidationSchema,
   UserLoginValidationSchema,
   userProfileComplete,
   userOptionalProfileSchema,
+  updateScheduleValidationSchema,
 };

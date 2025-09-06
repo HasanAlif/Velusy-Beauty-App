@@ -13,7 +13,7 @@ router.post(
   "/register",
   // validateRequest(UserValidation.CreateUserValidationSchema),
   fileUploader.userMutipleFiles,
-  userController.createUser 
+  userController.createUser
 );
 
 // complete profile
@@ -50,6 +50,17 @@ router.patch(
   auth(),
   userController.accountUpdate
 );
+
+// update schedule
+router.patch(
+  "/update-schedule",
+  validateRequest(UserValidation.updateScheduleValidationSchema),
+  auth(),
+  userController.updateSchedule
+);
+
+// get user schedule
+router.get("/schedule", auth(), userController.getUserSchedule);
 
 // delete me
 router.delete("/delete-me", auth(), userController.deleteMe);

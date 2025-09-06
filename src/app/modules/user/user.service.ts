@@ -375,7 +375,7 @@ const createOrUpdateProfile = async (req: Request) => {
     portfolio,
     certificates,
     companyCertificates,
-    schedule
+    schedule,
   } = req.body;
 
   try {
@@ -395,8 +395,8 @@ const createOrUpdateProfile = async (req: Request) => {
         schedule: schedule || {},
         role: UserRole.PROFESSIONAL, // Set as professional by default
         status: UserStatus.ACTIVE,
-        city: 'Unknown', // Required field
-        streetAddress: 'Unknown', // Required field
+        city: "Unknown", // Required field
+        streetAddress: "Unknown", // Required field
       };
 
       user = await User.create(newUserData);
@@ -418,11 +418,11 @@ const createOrUpdateProfile = async (req: Request) => {
         new: true,
         runValidators: true,
       });
-      
+
       if (!updatedUser) {
-        throw new ApiError(httpStatus.NOT_FOUND, 'User not found for update');
+        throw new ApiError(httpStatus.NOT_FOUND, "User not found for update");
       }
-      
+
       user = updatedUser;
     }
 
@@ -436,7 +436,7 @@ const createOrUpdateProfile = async (req: Request) => {
     // Handle multiple file uploads for portfolio, certificates
     if (req.files && !Array.isArray(req.files) && user) {
       const files = req.files as { [fieldname: string]: Express.Multer.File[] };
-      
+
       // Handle portfolio files
       if (files.portfolioFiles) {
         const portfolioUploads = await Promise.all(
@@ -444,7 +444,9 @@ const createOrUpdateProfile = async (req: Request) => {
             const uploaded = await fileUploader.uploadGeneralFile(file);
             return {
               fileUrl: uploaded.Location,
-              fileType: file.mimetype.startsWith('image/') ? 'image' : 'document'
+              fileType: file.mimetype.startsWith("image/")
+                ? "image"
+                : "document",
             };
           })
         );
@@ -458,11 +460,16 @@ const createOrUpdateProfile = async (req: Request) => {
             const uploaded = await fileUploader.uploadGeneralFile(file);
             return {
               fileUrl: uploaded.Location,
-              fileType: file.mimetype.startsWith('image/') ? 'image' : 'document'
+              fileType: file.mimetype.startsWith("image/")
+                ? "image"
+                : "document",
             };
           })
         );
-        user.certificates = [...(user.certificates || []), ...certificateUploads];
+        user.certificates = [
+          ...(user.certificates || []),
+          ...certificateUploads,
+        ];
       }
 
       // Handle company certificate files
@@ -472,11 +479,16 @@ const createOrUpdateProfile = async (req: Request) => {
             const uploaded = await fileUploader.uploadGeneralFile(file);
             return {
               fileUrl: uploaded.Location,
-              fileType: file.mimetype.startsWith('image/') ? 'image' : 'document'
+              fileType: file.mimetype.startsWith("image/")
+                ? "image"
+                : "document",
             };
           })
         );
-        user.companyCertificates = [...(user.companyCertificates || []), ...companyCertUploads];
+        user.companyCertificates = [
+          ...(user.companyCertificates || []),
+          ...companyCertUploads,
+        ];
       }
 
       await user.save();
@@ -484,12 +496,15 @@ const createOrUpdateProfile = async (req: Request) => {
 
     // Ensure user is not null before accessing properties
     if (!user) {
-      throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, 'User creation/update failed');
+      throw new ApiError(
+        httpStatus.INTERNAL_SERVER_ERROR,
+        "User creation/update failed"
+      );
     }
 
     return {
       success: true,
-      message: 'Profile created/updated successfully',
+      message: "Profile created/updated successfully",
       data: {
         id: user._id,
         fullName: user.fullName,
@@ -506,14 +521,148 @@ const createOrUpdateProfile = async (req: Request) => {
         role: user.role,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
-      }
+      },
     };
-
   } catch (error) {
-    console.error('Error in createOrUpdateProfile:', error);
+    console.error("Error in createOrUpdateProfile:", error);
     throw new ApiError(
       httpStatus.INTERNAL_SERVER_ERROR,
-      'Error in creating/updating profile: ' + (error instanceof Error ? error.message : 'Unknown error')
+      "Error in creating/updating profile: " +
+        (error instanceof Error ? error.message : "Unknown error")
+    );
+  }
+};
+
+// Update user schedule
+const updateSchedule = async (
+  userId: string,
+  scheduleData: { [date: string]: { time: string; status: string }[] }
+) => {
+  try {
+    const user = await User.findById(userId);
+
+    if (!user) {
+      throw new ApiError(httpStatus.NOT_FOUND, "User not found");
+    }
+
+    // Initialize schedule if it doesn't exist or parse if it's a string
+    if (!user.schedule) {
+      user.schedule = {};
+    } else if (typeof user.schedule === "string") {
+      try {
+        user.schedule = JSON.parse(user.schedule);
+      } catch (parseError) {
+        console.log(
+          "Error parsing existing schedule, initializing as empty object:",
+          parseError
+        );
+        user.schedule = {};
+      }
+    }
+
+    // Ensure schedule is an object
+    if (typeof user.schedule !== "object" || user.schedule === null) {
+      user.schedule = {};
+    }
+
+    // Process each date in the schedule data
+    Object.keys(scheduleData).forEach((date) => {
+      const timeSlots = scheduleData[date];
+
+      // Validate date format (YYYY-MM-DD)
+      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+      if (!dateRegex.test(date)) {
+        throw new ApiError(
+          httpStatus.BAD_REQUEST,
+          `Invalid date format for ${date}. Use YYYY-MM-DD format.`
+        );
+      }
+
+      // Validate each time slot
+      timeSlots.forEach((slot) => {
+        const timeRegex = /^\d{2}:\d{2}$/;
+        if (!timeRegex.test(slot.time)) {
+          throw new ApiError(
+            httpStatus.BAD_REQUEST,
+            `Invalid time format for ${slot.time}. Use HH:MM format.`
+          );
+        }
+
+        const validStatuses = [
+          "AVAILABLE",
+          "BOOKED",
+          "UNAVAILABLE",
+          "NOT_AVAILABLE",
+        ];
+        if (!validStatuses.includes(slot.status)) {
+          throw new ApiError(
+            httpStatus.BAD_REQUEST,
+            `Invalid status ${
+              slot.status
+            }. Must be one of: ${validStatuses.join(", ")}`
+          );
+        }
+      });
+
+      // Set the complete schedule for this date (replaces existing)
+      if (user.schedule) {
+        user.schedule[date] = timeSlots;
+      }
+    });
+
+    // Mark the schedule field as modified for MongoDB
+    user.markModified("schedule");
+    await user.save();
+
+    return {
+      success: true,
+      message: "Schedule updated successfully",
+      data: {
+        id: user._id,
+        userName: user.userName,
+        fullName: user.fullName,
+        schedule: user.schedule,
+        updatedAt: user.updatedAt,
+      },
+    };
+  } catch (error) {
+    console.error("Error updating schedule:", error);
+    if (error instanceof ApiError) {
+      throw error;
+    }
+    throw new ApiError(
+      httpStatus.INTERNAL_SERVER_ERROR,
+      "Error updating schedule: " +
+        (error instanceof Error ? error.message : "Unknown error")
+    );
+  }
+};
+
+const getUserSchedule = async (userId: string) => {
+  try {
+    const user = await User.findById(userId).select("schedule");
+
+    if (!user) {
+      throw new ApiError(httpStatus.NOT_FOUND, "User not found");
+    }
+
+    return {
+      success: true,
+      message: "User schedule retrieved successfully",
+      data: {
+        id: user._id,
+        schedule: user.schedule || {},
+      },
+    };
+  } catch (error) {
+    console.error("Error retrieving user schedule:", error);
+    if (error instanceof ApiError) {
+      throw error;
+    }
+    throw new ApiError(
+      httpStatus.INTERNAL_SERVER_ERROR,
+      "Error retrieving schedule: " +
+        (error instanceof Error ? error.message : "Unknown error")
     );
   }
 };
@@ -528,4 +677,6 @@ export const userService = {
   accountUpdateIntoDb,
   completeProfileIntoDB,
   createOrUpdateProfile,
+  updateSchedule,
+  getUserSchedule,
 };

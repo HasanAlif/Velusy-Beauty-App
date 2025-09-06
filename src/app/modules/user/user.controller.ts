@@ -115,8 +115,54 @@ const deleteMe = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
-const createOrUpdateProfile = catchAsync(async (req: Request, res: Response) => {
-  const result = await userService.createOrUpdateProfile(req);
+// Create or update professional profile
+const createOrUpdateProfile = catchAsync(
+  async (req: Request, res: Response) => {
+    const result = await userService.createOrUpdateProfile(req);
+
+    sendResponse(res, {
+      statusCode: httpStatus.OK,
+      success: result.success,
+      message: result.message,
+      data: result.data,
+    });
+  }
+);
+
+const getUserSchedule = catchAsync(
+  async (req: Request & { user?: any }, res: Response) => {
+    const userId = req.user.id;
+
+    const result = await userService.getUserSchedule(userId);
+
+    sendResponse(res, {
+      statusCode: httpStatus.OK,
+      success: true,
+      message: "User schedule retrieved successfully",
+      data: result,
+    });
+  }
+);
+
+// Update user schedule
+const updateSchedule = catchAsync(async (req: Request, res: Response) => {
+  const { schedule } = req.body;
+  const userId = req.user.id;
+
+  if (
+    !schedule ||
+    typeof schedule !== "object" ||
+    Object.keys(schedule).length === 0
+  ) {
+    return sendResponse(res, {
+      statusCode: httpStatus.BAD_REQUEST,
+      success: false,
+      message: "schedule is required and must be a non-empty object",
+      data: null,
+    });
+  }
+
+  const result = await userService.updateSchedule(userId, schedule);
 
   sendResponse(res, {
     statusCode: httpStatus.OK,
@@ -136,4 +182,6 @@ export const userController = {
   deleteMe,
   profileImageChange,
   createOrUpdateProfile,
+  updateSchedule,
+  getUserSchedule,
 };
