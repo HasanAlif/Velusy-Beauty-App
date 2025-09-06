@@ -1,4 +1,4 @@
-import { User, IUser } from "../../models";
+import { User, IUser, UserRole, UserStatus } from "../../models";
 import * as bcrypt from "bcrypt";
 import { Request } from "express";
 import httpStatus from "http-status";
@@ -363,6 +363,161 @@ const completeProfileIntoDB = async (req: Request & { user?: any }) => {
   };
 };
 
+// Create or update user profile with professional details
+const createOrUpdateProfile = async (req: Request) => {
+  const {
+    fullName,
+    userName,
+    personalDescription,
+    serviceType,
+    serviceCategory,
+    language,
+    portfolio,
+    certificates,
+    companyCertificates,
+    schedule
+  } = req.body;
+
+  try {
+    let user = await User.findOne({ userName });
+
+    if (!user) {
+      const newUserData = {
+        fullName,
+        userName,
+        personalDescription,
+        serviceType,
+        serviceCategory,
+        language,
+        portfolio: portfolio || [],
+        certificates: certificates || [],
+        companyCertificates: companyCertificates || [],
+        schedule: schedule || {},
+        role: UserRole.PROFESSIONAL, // Set as professional by default
+        status: UserStatus.ACTIVE,
+        city: 'Unknown', // Required field
+        streetAddress: 'Unknown', // Required field
+      };
+
+      user = await User.create(newUserData);
+    } else {
+      // Update existing user
+      const updateData = {
+        ...(fullName && { fullName }),
+        ...(personalDescription && { personalDescription }),
+        ...(serviceType && { serviceType }),
+        ...(serviceCategory && { serviceCategory }),
+        ...(language && { language }),
+        ...(portfolio && { portfolio }),
+        ...(certificates && { certificates }),
+        ...(companyCertificates && { companyCertificates }),
+        ...(schedule && { schedule }),
+      };
+
+      const updatedUser = await User.findByIdAndUpdate(user._id, updateData, {
+        new: true,
+        runValidators: true,
+      });
+      
+      if (!updatedUser) {
+        throw new ApiError(httpStatus.NOT_FOUND, 'User not found for update');
+      }
+      
+      user = updatedUser;
+    }
+
+    // Handle profile image upload if present
+    if (req.file && user) {
+      const uploadedImage = await fileUploader.uploadProfileImage(req.file);
+      user.profilePicture = uploadedImage.Location;
+      await user.save();
+    }
+
+    // Handle multiple file uploads for portfolio, certificates
+    if (req.files && !Array.isArray(req.files) && user) {
+      const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+      
+      // Handle portfolio files
+      if (files.portfolioFiles) {
+        const portfolioUploads = await Promise.all(
+          files.portfolioFiles.map(async (file) => {
+            const uploaded = await fileUploader.uploadGeneralFile(file);
+            return {
+              fileUrl: uploaded.Location,
+              fileType: file.mimetype.startsWith('image/') ? 'image' : 'document'
+            };
+          })
+        );
+        user.portfolio = [...(user.portfolio || []), ...portfolioUploads];
+      }
+
+      // Handle certificate files
+      if (files.certificateFiles) {
+        const certificateUploads = await Promise.all(
+          files.certificateFiles.map(async (file) => {
+            const uploaded = await fileUploader.uploadGeneralFile(file);
+            return {
+              fileUrl: uploaded.Location,
+              fileType: file.mimetype.startsWith('image/') ? 'image' : 'document'
+            };
+          })
+        );
+        user.certificates = [...(user.certificates || []), ...certificateUploads];
+      }
+
+      // Handle company certificate files
+      if (files.companyCertificateFiles) {
+        const companyCertUploads = await Promise.all(
+          files.companyCertificateFiles.map(async (file) => {
+            const uploaded = await fileUploader.uploadGeneralFile(file);
+            return {
+              fileUrl: uploaded.Location,
+              fileType: file.mimetype.startsWith('image/') ? 'image' : 'document'
+            };
+          })
+        );
+        user.companyCertificates = [...(user.companyCertificates || []), ...companyCertUploads];
+      }
+
+      await user.save();
+    }
+
+    // Ensure user is not null before accessing properties
+    if (!user) {
+      throw new ApiError(httpStatus.INTERNAL_SERVER_ERROR, 'User creation/update failed');
+    }
+
+    return {
+      success: true,
+      message: 'Profile created/updated successfully',
+      data: {
+        id: user._id,
+        fullName: user.fullName,
+        userName: user.userName,
+        personalDescription: user.personalDescription,
+        serviceType: user.serviceType,
+        serviceCategory: user.serviceCategory,
+        language: user.language,
+        profilePicture: user.profilePicture,
+        portfolio: user.portfolio,
+        certificates: user.certificates,
+        companyCertificates: user.companyCertificates,
+        schedule: user.schedule,
+        role: user.role,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+      }
+    };
+
+  } catch (error) {
+    console.error('Error in createOrUpdateProfile:', error);
+    throw new ApiError(
+      httpStatus.INTERNAL_SERVER_ERROR,
+      'Error in creating/updating profile: ' + (error instanceof Error ? error.message : 'Unknown error')
+    );
+  }
+};
+
 export const userService = {
   createUserIntoDb,
   getUsersFromDb,
@@ -372,4 +527,5 @@ export const userService = {
   profileImageChange,
   accountUpdateIntoDb,
   completeProfileIntoDB,
+  createOrUpdateProfile,
 };

@@ -115,6 +115,17 @@ const deleteMe = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const createOrUpdateProfile = catchAsync(async (req: Request, res: Response) => {
+  const result = await userService.createOrUpdateProfile(req);
+
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: result.success,
+    message: result.message,
+    data: result.data,
+  });
+});
+
 export const userController = {
   createUser,
   getUsers,
@@ -124,4 +135,5 @@ export const userController = {
   completeProfile,
   deleteMe,
   profileImageChange,
+  createOrUpdateProfile,
 };

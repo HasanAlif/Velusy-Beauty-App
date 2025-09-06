@@ -12,18 +12,32 @@ export enum UserStatus {
   BLOCKED = "BLOCKED",
 }
 
+export interface IPortfolio {
+  fileUrl: string;
+  fileType: string; // e.g., image, pdf
+}
+
 export interface IUser extends Document {
   _id: string;
   firstName?: string;
   lastName?: string;
+  fullName?: string; // New field
   userName?: string;
   profession?: string;
+  personalDescription?: string; // New field
   email: string;
   phoneNumber?: string;
   city: string;
   streetAddress: string;
   profilePicture?: string;
   file?: string;
+  schedule?: { [date: string]: { time: string, status: string }[] }; // New field
+  serviceType?: string; // New field
+  serviceCategory?: string; // New field
+  portfolio?: IPortfolio[]; // New field
+  language?: string; // New field
+  certificates?: IPortfolio[]; // New field
+  companyCertificates?: IPortfolio[]; // New field
   password: string;
   role: UserRole;
   status: UserStatus;
@@ -35,6 +49,11 @@ export interface IUser extends Document {
   updatedAt: Date;
 }
 
+const portfolioSchema = new Schema<IPortfolio>({
+  fileUrl: { type: String, required: true },
+  fileType: { type: String, required: true }
+});
+
 const UserSchema = new Schema<IUser>(
   {
     firstName: {
@@ -45,11 +64,19 @@ const UserSchema = new Schema<IUser>(
       type: String,
       trim: true,
     },
+    fullName: {
+      type: String,
+      trim: true,
+    },
     userName: {
       type: String,
       trim: true,
     },
     profession: {
+      type: String,
+      trim: true,
+    },
+    personalDescription: {
       type: String,
       trim: true,
     },
@@ -78,6 +105,34 @@ const UserSchema = new Schema<IUser>(
     },
     profilePicture: {
       type: String,
+    },
+    schedule: {
+      type: Object,
+      default: {} // Key as date, value as array of time slots
+    },
+    serviceType: {
+      type: String,
+      trim: true,
+    },
+    serviceCategory: {
+      type: String,
+      trim: true,
+    },
+    portfolio: {
+      type: [portfolioSchema],
+      default: []
+    },
+    language: {
+      type: String,
+      trim: true,
+    },
+    certificates: {
+      type: [portfolioSchema],
+      default: []
+    },
+    companyCertificates: {
+      type: [portfolioSchema],
+      default: []
     },
     password: {
       type: String,
@@ -114,6 +169,10 @@ const UserSchema = new Schema<IUser>(
 // Index for better performance
 UserSchema.index({ role: 1 });
 UserSchema.index({ status: 1 });
+UserSchema.index({ userName: 1 });
+UserSchema.index({ serviceType: 1 });
+UserSchema.index({ serviceCategory: 1 });
+UserSchema.index({ email: 1, userName: 1 });
 
 export enum NotificationType {
   NORMAL = "NORMAL",

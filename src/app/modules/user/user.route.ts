@@ -25,6 +25,13 @@ router.post(
   userController.completeProfile
 );
 
+// Create or update professional profile
+router.post(
+  "/create-update-profile",
+  fileUploader.profileMultipleFiles,
+  userController.createOrUpdateProfile
+);
+
 // image upload
 router.put(
   "/profile-image",

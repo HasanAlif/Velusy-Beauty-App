@@ -57,6 +57,14 @@ const userMutipleFiles = upload.fields([
   { name: "image", maxCount: 1 },
 ]);
 
+// Upload for createOrUpdateProfile endpoint
+const profileMultipleFiles = upload.fields([
+  { name: "profilePicture", maxCount: 1 },
+  { name: "portfolioFiles", maxCount: 5 },
+  { name: "certificateFiles", maxCount: 5 },
+  { name: "companyCertificateFiles", maxCount: 5 },
+]);
+
 // ✅ Enhanced Cloudinary Upload with better file handling
 const uploadToCloudinary = async (
   file: Express.Multer.File,
@@ -148,6 +156,7 @@ export const fileUploader = {
   uploadMultipleFiles,
   uploadMultipleImage,
   userMutipleFiles,
+  profileMultipleFiles,
   uploadFile,
   cloudinaryUpload,
   uploadToDigitalOcean,
