@@ -106,215 +106,221 @@ const createUserIntoDb = async (req: Request) => {
   }
 };
 
+
+
+
 // retrieve all users from the database also searching and filtering
-const getUsersFromDb = async (
-  params: IUserFilterRequest,
-  options: IPaginationOptions
-) => {
-  const { page, limit, skip } = paginationHelper.calculatePagination(options);
-  const { searchTerm, ...filterData } = params;
+// const getUsersFromDb = async (
+//   params: IUserFilterRequest,
+//   options: IPaginationOptions
+// ) => {
+//   const { page, limit, skip } = paginationHelper.calculatePagination(options);
+//   const { searchTerm, ...filterData } = params;
 
-  const andConditions: any[] = [];
+//   const andConditions: any[] = [];
 
-  if (params.searchTerm) {
-    andConditions.push({
-      $or: userSearchAbleFields.map((field) => ({
-        [field]: {
-          $regex: params.searchTerm,
-          $options: "i",
-        },
-      })),
-    });
-  }
+//   if (params.searchTerm) {
+//     andConditions.push({
+//       $or: userSearchAbleFields.map((field) => ({
+//         [field]: {
+//           $regex: params.searchTerm,
+//           $options: "i",
+//         },
+//       })),
+//     });
+//   }
 
-  if (Object.keys(filterData).length > 0) {
-    andConditions.push({
-      $and: Object.keys(filterData).map((key) => ({
-        [key]: (filterData as any)[key],
-      })),
-    });
-  }
+//   if (Object.keys(filterData).length > 0) {
+//     andConditions.push({
+//       $and: Object.keys(filterData).map((key) => ({
+//         [key]: (filterData as any)[key],
+//       })),
+//     });
+//   }
 
-  const whereConditions =
-    andConditions.length > 0 ? { $and: andConditions } : {};
+//   const whereConditions =
+//     andConditions.length > 0 ? { $and: andConditions } : {};
 
-  const sortConditions: any = {};
-  if (options.sortBy && options.sortOrder) {
-    sortConditions[options.sortBy] = options.sortOrder === "desc" ? -1 : 1;
-  } else {
-    sortConditions.createdAt = -1;
-  }
+//   const sortConditions: any = {};
+//   if (options.sortBy && options.sortOrder) {
+//     sortConditions[options.sortBy] = options.sortOrder === "desc" ? -1 : 1;
+//   } else {
+//     sortConditions.createdAt = -1;
+//   }
 
-  const result = await User.find(whereConditions)
-    .select({
-      _id: 1,
-      firstName: 1,
-      lastName: 1,
-      email: 1,
-      profilePicture: 1,
-      role: 1,
-      createdAt: 1,
-      updatedAt: 1,
-    })
-    .sort(sortConditions)
-    .skip(skip)
-    .limit(limit);
+//   const result = await User.find(whereConditions)
+//     .select({
+//       _id: 1,
+//       firstName: 1,
+//       lastName: 1,
+//       email: 1,
+//       profilePicture: 1,
+//       role: 1,
+//       createdAt: 1,
+//       updatedAt: 1,
+//     })
+//     .sort(sortConditions)
+//     .skip(skip)
+//     .limit(limit);
 
-  const total = await User.countDocuments(whereConditions);
+//   const total = await User.countDocuments(whereConditions);
 
-  if (!result || result.length === 0) {
-    throw new ApiError(404, "No active users found");
-  }
+//   if (!result || result.length === 0) {
+//     throw new ApiError(404, "No active users found");
+//   }
 
-  return {
-    meta: {
-      page,
-      limit,
-      total,
-    },
-    data: result,
-  };
-};
+//   return {
+//     meta: {
+//       page,
+//       limit,
+//       total,
+//     },
+//     data: result,
+//   };
+// };
+
 
 // update profile by user own profile using token or email and id
-const updateProfile = async (req: Request) => {
-  const file = req.file;
-  const stringData = req.body.data;
-  let image;
-  let parseData;
+// const updateProfile = async (req: Request) => {
+//   const file = req.file;
+//   const stringData = req.body.data;
+//   let image;
+//   let parseData;
 
-  const existingUser = await User.findById(req.user.id);
-  if (!existingUser) {
-    throw new ApiError(404, "User not found");
-  }
+//   const existingUser = await User.findById(req.user.id);
+//   if (!existingUser) {
+//     throw new ApiError(404, "User not found");
+//   }
 
-  if (file) {
-    image = (await fileUploader.uploadToDigitalOcean(file)).Location;
-  }
-  if (stringData) {
-    parseData = JSON.parse(stringData);
-  }
+//   if (file) {
+//     image = (await fileUploader.uploadToDigitalOcean(file)).Location;
+//   }
+//   if (stringData) {
+//     parseData = JSON.parse(stringData);
+//   }
 
-  const updateData: any = {};
-  if (parseData?.firstName) updateData.firstName = parseData.firstName;
-  if (parseData?.lastName) updateData.lastName = parseData.lastName;
-  if (parseData?.email) updateData.email = parseData.email;
-  if (image) updateData.profileImage = image;
-  updateData.updatedAt = new Date();
+//   const updateData: any = {};
+//   if (parseData?.firstName) updateData.firstName = parseData.firstName;
+//   if (parseData?.lastName) updateData.lastName = parseData.lastName;
+//   if (parseData?.email) updateData.email = parseData.email;
+//   if (image) updateData.profileImage = image;
+//   updateData.updatedAt = new Date();
 
-  const result = await User.findByIdAndUpdate(existingUser._id, updateData, {
-    new: true,
-    select: {
-      _id: 1,
-      firstName: 1,
-      lastName: 1,
-      email: 1,
-      profileImage: 1,
-    },
-  });
+//   const result = await User.findByIdAndUpdate(existingUser._id, updateData, {
+//     new: true,
+//     select: {
+//       _id: 1,
+//       firstName: 1,
+//       lastName: 1,
+//       email: 1,
+//       profileImage: 1,
+//     },
+//   });
 
-  return result;
-};
+//   return result;
+// };
+
+
 
 // update user data into database by id for admin
-const updateUserIntoDb = async (payload: Partial<IUser>, id: string) => {
-  const userInfo = await User.findById(id);
-  if (!userInfo) {
-    throw new ApiError(httpStatus.NOT_FOUND, "User not found with id: " + id);
-  }
+// const updateUserIntoDb = async (payload: Partial<IUser>, id: string) => {
+//   const userInfo = await User.findById(id);
+//   if (!userInfo) {
+//     throw new ApiError(httpStatus.NOT_FOUND, "User not found with id: " + id);
+//   }
 
-  const result = await User.findByIdAndUpdate(userInfo._id, payload, {
-    new: true,
-    select: {
-      _id: 1,
-      firstName: 1,
-      lastName: 1,
-      email: 1,
-      profileImage: 1,
-      role: 1,
-      createdAt: 1,
-      updatedAt: 1,
-    },
-  });
+//   const result = await User.findByIdAndUpdate(userInfo._id, payload, {
+//     new: true,
+//     select: {
+//       _id: 1,
+//       firstName: 1,
+//       lastName: 1,
+//       email: 1,
+//       profileImage: 1,
+//       role: 1,
+//       createdAt: 1,
+//       updatedAt: 1,
+//     },
+//   });
 
-  if (!result) {
-    throw new ApiError(
-      httpStatus.INTERNAL_SERVER_ERROR,
-      "Failed to update user profile"
-    );
-  }
+//   if (!result) {
+//     throw new ApiError(
+//       httpStatus.INTERNAL_SERVER_ERROR,
+//       "Failed to update user profile"
+//     );
+//   }
 
-  return result;
-};
+//   return result;
+// };
 
 // profile image upload or change
-const profileImageChange = async (req: Request) => {
-  const file = req.file;
-  if (file) {
-    const image = (await fileUploader.uploadToDigitalOcean(file)).Location;
+// const profileImageChange = async (req: Request) => {
+//   const file = req.file;
+//   if (file) {
+//     const image = (await fileUploader.uploadToDigitalOcean(file)).Location;
 
-    return await User.findByIdAndUpdate(
-      req.user.id,
-      { profileImage: image },
-      { new: true }
-    );
-  }
+//     return await User.findByIdAndUpdate(
+//       req.user.id,
+//       { profileImage: image },
+//       { new: true }
+//     );
+//   }
 
-  return null;
-};
+//   return null;
+// };
 
 // delete user from db
-const deleteUserFromDb = async (id: string) => {
-  const user = await User.findById(id);
-  if (!user) {
-    throw new ApiError(httpStatus.NOT_FOUND, "User not found with id: " + id);
-  }
+// const deleteUserFromDb = async (id: string) => {
+//   const user = await User.findById(id);
+//   if (!user) {
+//     throw new ApiError(httpStatus.NOT_FOUND, "User not found with id: " + id);
+//   }
 
-  const result = await User.findByIdAndUpdate(
-    id,
-    { status: "INACTIVE" },
-    {
-      new: true,
-      select: {
-        _id: 1,
-        firstName: 1,
-        lastName: 1,
-        email: 1,
-        status: 1,
-        updatedAt: 1,
-      },
-    }
-  );
+//   const result = await User.findByIdAndUpdate(
+//     id,
+//     { status: "INACTIVE" },
+//     {
+//       new: true,
+//       select: {
+//         _id: 1,
+//         firstName: 1,
+//         lastName: 1,
+//         email: 1,
+//         status: 1,
+//         updatedAt: 1,
+//       },
+//     }
+//   );
 
-  return result;
-};
+//   return result;
+// };
 
-const accountUpdateIntoDb = async (
-  payload: Partial<IUser>,
-  id: string
-): Promise<Partial<IUser> | null> => {
-  const userInfo = await User.findById(id);
-  if (!userInfo) {
-    throw new ApiError(httpStatus.NOT_FOUND, "User not found with id: " + id);
-  }
+// const accountUpdateIntoDb = async (
+//   payload: Partial<IUser>,
+//   id: string
+// ): Promise<Partial<IUser> | null> => {
+//   const userInfo = await User.findById(id);
+//   if (!userInfo) {
+//     throw new ApiError(httpStatus.NOT_FOUND, "User not found with id: " + id);
+//   }
 
-  const result = await User.findByIdAndUpdate(id, payload, {
-    new: true,
-    select: {
-      _id: 1,
-      email: 1,
-      name: 1,
-      firstName: 1,
-      lastName: 1,
-      role: 1,
-      phoneNumber: 1,
-      createdAt: 1,
-      updatedAt: 1,
-    },
-  });
+//   const result = await User.findByIdAndUpdate(id, payload, {
+//     new: true,
+//     select: {
+//       _id: 1,
+//       email: 1,
+//       name: 1,
+//       firstName: 1,
+//       lastName: 1,
+//       role: 1,
+//       phoneNumber: 1,
+//       createdAt: 1,
+//       updatedAt: 1,
+//     },
+//   });
 
-  return result;
-};
+//   return result;
+// };
 
 const completeProfileIntoDB = async (req: Request & { user?: any }) => {
   const userId = req.user?.id;
@@ -732,13 +738,13 @@ const findUserById = async (userId: string) => {
 
 export const userService = {
   createUserIntoDb,
-  getUsersFromDb,
-  updateProfile,
+  // getUsersFromDb,
+  // updateProfile,
   editUserProfile,
-  updateUserIntoDb,
-  deleteUserFromDb,
-  profileImageChange,
-  accountUpdateIntoDb,
+  // updateUserIntoDb,
+  // deleteUserFromDb,
+  // profileImageChange,
+  // accountUpdateIntoDb,
   completeProfileIntoDB,
   createOrUpdateProfile,
   updateSchedule,

@@ -19,33 +19,33 @@ const createUser = catchAsync(async (req: Request, res: Response) => {
 });
 
 // get all user form db
-const getUsers = catchAsync(async (req: Request, res: Response) => {
-  const filters = pick(req.query, userFilterableFields);
-  const options = pick(req.query, ["limit", "page", "sortBy", "sortOrder"]);
+// const getUsers = catchAsync(async (req: Request, res: Response) => {
+//   const filters = pick(req.query, userFilterableFields);
+//   const options = pick(req.query, ["limit", "page", "sortBy", "sortOrder"]);
 
-  const result = await userService.getUsersFromDb(filters, options);
-  sendResponse(res, {
-    statusCode: httpStatus.OK,
-    success: true,
-    message: "Users retrieve successfully!",
-    data: result,
-  });
-});
+//   const result = await userService.getUsersFromDb(filters, options);
+//   sendResponse(res, {
+//     statusCode: httpStatus.OK,
+//     success: true,
+//     message: "Users retrieve successfully!",
+//     data: result,
+//   });
+// });
 
 // get all user form db
-const updateProfile = catchAsync(
-  async (req: Request & { user?: any }, res: Response) => {
-    const user = req?.user;
+// const updateProfile = catchAsync(
+//   async (req: Request & { user?: any }, res: Response) => {
+//     const user = req?.user;
 
-    const result = await userService.updateProfile(req);
-    sendResponse(res, {
-      statusCode: httpStatus.OK,
-      success: true,
-      message: "Profile updated successfully!",
-      data: result,
-    });
-  }
-);
+//     const result = await userService.updateProfile(req);
+//     sendResponse(res, {
+//       statusCode: httpStatus.OK,
+//       success: true,
+//       message: "Profile updated successfully!",
+//       data: result,
+//     });
+//   }
+// );
 
 // complete profile
 const completeProfile = catchAsync(
@@ -66,55 +66,55 @@ const completeProfile = catchAsync(
 );
 
 // *! update user role and account status
-const updateUser = catchAsync(async (req: Request, res: Response) => {
-  const id = req.params.id;
-  const result = await userService.updateUserIntoDb(req.body, id);
-  sendResponse(res, {
-    statusCode: httpStatus.OK,
-    success: true,
-    message: "User updated successfully!",
-    data: result,
-  });
-});
+// const updateUser = catchAsync(async (req: Request, res: Response) => {
+//   const id = req.params.id;
+//   const result = await userService.updateUserIntoDb(req.body, id);
+//   sendResponse(res, {
+//     statusCode: httpStatus.OK,
+//     success: true,
+//     message: "User updated successfully!",
+//     data: result,
+//   });
+// });
 
 // *! update user role and account status
-const profileImageChange = catchAsync(async (req: Request, res: Response) => {
-  const id = req.params.id;
-  const result = await userService.profileImageChange(req);
+// const profileImageChange = catchAsync(async (req: Request, res: Response) => {
+//   const id = req.params.id;
+//   const result = await userService.profileImageChange(req);
 
-  sendResponse(res, {
-    statusCode: httpStatus.OK,
-    success: true,
-    message: "User updated successfully!",
-    data: result,
-  });
-});
+//   sendResponse(res, {
+//     statusCode: httpStatus.OK,
+//     success: true,
+//     message: "User updated successfully!",
+//     data: result,
+//   });
+// });
 
 // update user role and account status
-const accountUpdate = catchAsync(async (req: Request, res: Response) => {
-  const id = req.user.id;
-  const result = await userService.accountUpdateIntoDb(req.body, id);
+// const accountUpdate = catchAsync(async (req: Request, res: Response) => {
+//   const id = req.user.id;
+//   const result = await userService.accountUpdateIntoDb(req.body, id);
 
-  sendResponse(res, {
-    statusCode: httpStatus.OK,
-    success: true,
-    message: "User account updated successfully!",
-    data: result,
-  });
-});
+//   sendResponse(res, {
+//     statusCode: httpStatus.OK,
+//     success: true,
+//     message: "User account updated successfully!",
+//     data: result,
+//   });
+// });
 
 // *! delete user
-const deleteMe = catchAsync(async (req: Request, res: Response) => {
-  const id = req.user.id;
-  const result = await userService.deleteUserFromDb(id);
+// const deleteMe = catchAsync(async (req: Request, res: Response) => {
+//   const id = req.user.id;
+//   const result = await userService.deleteUserFromDb(id);
 
-  sendResponse(res, {
-    statusCode: httpStatus.OK,
-    success: true,
-    message: "User Deleted successfully!",
-    data: result,
-  });
-});
+//   sendResponse(res, {
+//     statusCode: httpStatus.OK,
+//     success: true,
+//     message: "User Deleted successfully!",
+//     data: result,
+//   });
+// });
 
 // Create or update professional profile
 const createOrUpdateProfile = catchAsync(
@@ -268,13 +268,13 @@ export const editUserProfile = catchAsync(async (req: Request, res: Response) =>
 
 export const userController = {
   createUser,
-  getUsers,
-  updateProfile,
-  updateUser,
-  accountUpdate,
+  // getUsers,
+  // updateProfile,
+  // updateUser,
+  // accountUpdate,
   completeProfile,
-  deleteMe,
-  profileImageChange,
+  // deleteMe,
+  // profileImageChange,
   createOrUpdateProfile,
   updateSchedule,
   getUserSchedule,

@@ -32,24 +32,28 @@ router.post(
   userController.createOrUpdateProfile
 );
 
+
+
 // image upload
-router.put(
-  "/profile-image",
-  auth(),
-  fileUploader.uploadSingle,
-  userController.profileImageChange
-);
+// router.put(
+//   "/profile-image",
+//   auth(),
+//   fileUploader.uploadSingle,
+//   userController.profileImageChange
+// );
 
 // *!update  user
-router.put("/:id", auth(), userController.updateUser);
+// router.put("/:id", auth(), userController.updateUser);
 
 // account update
-router.patch(
-  "/account-update",
-  validateRequest(UserValidation.userOptionalProfileSchema),
-  auth(),
-  userController.accountUpdate
-);
+// router.patch(
+//   "/account-update",
+//   validateRequest(UserValidation.userOptionalProfileSchema),
+//   auth(),
+//   userController.accountUpdate
+// );
+
+
 
 // update schedule
 router.patch(
@@ -71,6 +75,6 @@ router.patch(
 );
 
 // delete me
-router.delete("/delete-me", auth(), userController.deleteMe);
+// router.delete("/delete-me", auth(), userController.deleteMe);
 
 export const userRoutes = router;
