@@ -102,10 +102,25 @@ const updateScheduleValidationSchema = z.object({
     }),
 });
 
+const editUserProfileValidationSchema = z.object({
+  firstName: z.string().min(2).max(30).optional(),
+  lastName: z.string().min(2).max(30).optional(),
+  email: z.string().email().optional(),
+  phoneNumber: z.string().regex(/^\+?[0-9]{10,15}$/).optional(),
+  city: z.string().optional(),
+  streetAddress: z.string().optional(),
+  profileImage: z.string().url().optional(),
+}).refine((data) => {
+  return Object.values(data).some(value => value !== undefined);
+}, {
+  message: "At least one field must be provided for update"
+});
+
 export const UserValidation = {
   CreateUserValidationSchema,
   UserLoginValidationSchema,
   userProfileComplete,
   userOptionalProfileSchema,
   updateScheduleValidationSchema,
+  editUserProfileValidationSchema,
 };

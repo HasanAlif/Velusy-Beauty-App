@@ -667,10 +667,74 @@ const getUserSchedule = async (userId: string) => {
   }
 };
 
+const editUserProfile = async (userId: string, profileData: Partial<IUser>) => {
+  try {
+    const objectId = new mongoose.Types.ObjectId(userId);
+
+    const user = await User.findById(objectId);
+    if (!user) {
+      throw new ApiError(httpStatus.NOT_FOUND, "User not found with id: " + userId);
+    }
+
+    const cleanedData = Object.fromEntries(
+      Object.entries(profileData).filter(([_, value]) => value !== undefined)
+    );
+
+    const result = await User.findByIdAndUpdate(objectId, cleanedData, {
+      new: true,
+      runValidators: true,
+      select: {
+        _id: 1,
+        firstName: 1,
+        lastName: 1,
+        email: 1,
+        phoneNumber: 1,
+        city: 1,
+        streetAddress: 1,
+        profilePicture: 1,
+        role: 1,
+        createdAt: 1,
+        updatedAt: 1,
+      },
+    });
+
+    if (!result) {
+      throw new ApiError(
+        httpStatus.INTERNAL_SERVER_ERROR,
+        "Failed to update user profile"
+      );
+    }
+
+    return result;
+  } catch (error) {
+    console.error("Error updating user profile:", error);
+    if (error instanceof ApiError) {
+      throw error;
+    }
+    throw new ApiError(
+      httpStatus.INTERNAL_SERVER_ERROR,
+      "Error updating user profile: " +
+        (error instanceof Error ? error.message : "Unknown error")
+    );
+  }
+};
+
+// Helper function to find user by ID
+const findUserById = async (userId: string) => {
+  try {
+    const objectId = new mongoose.Types.ObjectId(userId);
+    return await User.findById(objectId);
+  } catch (error) {
+    console.error('Error finding user:', error);
+    return null;
+  }
+};
+
 export const userService = {
   createUserIntoDb,
   getUsersFromDb,
   updateProfile,
+  editUserProfile,
   updateUserIntoDb,
   deleteUserFromDb,
   profileImageChange,
@@ -679,4 +743,5 @@ export const userService = {
   createOrUpdateProfile,
   updateSchedule,
   getUserSchedule,
+  findUserById,
 };

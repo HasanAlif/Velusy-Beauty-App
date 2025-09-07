@@ -43,8 +43,12 @@ const cloudinaryStorage = new CloudinaryStorage({
 
 const cloudinaryUpload = multer({ storage: cloudinaryStorage });
 
+// Upload single image with Cloudinary storage
+const uploadSingleToCloudinary = cloudinaryUpload.single("image");
+
 // Upload single image
 const uploadSingle = upload.single("image");
+const uploadProfilePicture = upload.single("profileImage"); // For profile image specifically
 const uploadFile = upload.single("file");
 
 // Upload multiple images
@@ -149,10 +153,37 @@ const uploadGeneralFile = async (file: Express.Multer.File) => {
   return uploadToCloudinary(file, "user-files");
 };
 
-// ✅ No Name Changes, Just Fixes
+// Function to delete image from Cloudinary
+const deleteFromCloudinary = async (imageUrl: string): Promise<boolean> => {
+  try {
+    if (!imageUrl) return false;
+    
+    const urlParts = imageUrl.split('/');
+    const versionIndex = urlParts.findIndex(part => part.startsWith('v'));
+    
+    if (versionIndex === -1) return false;
+    
+    const publicIdWithExtension = urlParts.slice(versionIndex + 1).join('/');
+    // Remove file extension
+    const publicId = publicIdWithExtension.split('.')[0];
+    
+    // Delete from Cloudinary
+    const result = await cloudinary.uploader.destroy(publicId);
+    
+    console.log('Cloudinary delete result:', result);
+    return result.result === 'ok';
+    
+  } catch (error) {
+    console.error('Error deleting image from Cloudinary:', error);
+    return false;
+  }
+};
+
 export const fileUploader = {
   upload,
   uploadSingle,
+  uploadSingleToCloudinary,
+  uploadProfilePicture,
   uploadMultipleFiles,
   uploadMultipleImage,
   userMutipleFiles,
@@ -163,4 +194,5 @@ export const fileUploader = {
   uploadToCloudinary,
   uploadProfileImage,
   uploadGeneralFile,
+  deleteFromCloudinary,
 };

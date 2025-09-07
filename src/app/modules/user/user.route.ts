@@ -62,6 +62,14 @@ router.patch(
 // get user schedule
 router.get("/schedule", auth(), userController.getUserSchedule);
 
+//edit user profile
+router.patch(
+  "/edit-profile",
+  auth(),
+  fileUploader.uploadSingleToCloudinary,
+  userController.editUserProfile
+);
+
 // delete me
 router.delete("/delete-me", auth(), userController.deleteMe);
 
