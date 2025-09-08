@@ -23,25 +23,29 @@ const CreateUserValidationSchema = z
   });
 
 const UserLoginValidationSchema = z.object({
-  email: z.string().email().nonempty("Email is required"),
-  password: z
-    .string()
-    .min(8, "Password must be at least 8 characters long")
-    .nonempty("Password is required"),
-  fcmToken: z.string().optional(),
-  // lat: z.number().optional(),
-  // lon: z.number().optional(),
+  body: z.object({
+    email: z.string().email().nonempty("Email is required"),
+    password: z
+      .string()
+      .min(8, "Password must be at least 8 characters long")
+      .nonempty("Password is required"),
+    fcmToken: z.string().optional(),
+    // lat: z.number().optional(),
+    // lon: z.number().optional(),
+  }),
 });
 
 const userProfileComplete = z.object({
-  einNumber: z.string().optional(),
-  naicsCode: z.string().optional(),
-  businessName: z.string().optional(),
-  location: z.string().optional(),
-  website: z.string().optional(),
-  description: z.string().optional(),
-  socialMediaTags: z.array(z.string()).optional(),
-  specificCategory: z.array(z.string()).optional(),
+  body: z.object({
+    einNumber: z.string().optional(),
+    naicsCode: z.string().optional(),
+    businessName: z.string().optional(),
+    location: z.string().optional(),
+    website: z.string().optional(),
+    description: z.string().optional(),
+    socialMediaTags: z.array(z.string()).optional(),
+    specificCategory: z.array(z.string()).optional(),
+  }),
 });
 
 const userOptionalProfileSchema = z.object({
@@ -102,19 +106,27 @@ const updateScheduleValidationSchema = z.object({
     }),
 });
 
-const editUserProfileValidationSchema = z.object({
-  firstName: z.string().min(2).max(30).optional(),
-  lastName: z.string().min(2).max(30).optional(),
-  email: z.string().email().optional(),
-  phoneNumber: z.string().regex(/^\+?[0-9]{10,15}$/).optional(),
-  city: z.string().optional(),
-  streetAddress: z.string().optional(),
-  profileImage: z.string().url().optional(),
-}).refine((data) => {
-  return Object.values(data).some(value => value !== undefined);
-}, {
-  message: "At least one field must be provided for update"
-});
+const editUserProfileValidationSchema = z
+  .object({
+    firstName: z.string().min(2).max(30).optional(),
+    lastName: z.string().min(2).max(30).optional(),
+    email: z.string().email().optional(),
+    phoneNumber: z
+      .string()
+      .regex(/^\+?[0-9]{10,15}$/)
+      .optional(),
+    city: z.string().optional(),
+    streetAddress: z.string().optional(),
+    profileImage: z.string().url().optional(),
+  })
+  .refine(
+    (data) => {
+      return Object.values(data).some((value) => value !== undefined);
+    },
+    {
+      message: "At least one field must be provided for update",
+    }
+  );
 
 export const UserValidation = {
   CreateUserValidationSchema,
