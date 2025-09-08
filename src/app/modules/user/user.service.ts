@@ -263,32 +263,6 @@ const createUserIntoDb = async (req: Request) => {
 //   return null;
 // };
 
-// delete user from db
-// const deleteUserFromDb = async (id: string) => {
-//   const user = await User.findById(id);
-//   if (!user) {
-//     throw new ApiError(httpStatus.NOT_FOUND, "User not found with id: " + id);
-//   }
-
-//   const result = await User.findByIdAndUpdate(
-//     id,
-//     { status: "INACTIVE" },
-//     {
-//       new: true,
-//       select: {
-//         _id: 1,
-//         firstName: 1,
-//         lastName: 1,
-//         email: 1,
-//         status: 1,
-//         updatedAt: 1,
-//       },
-//     }
-//   );
-
-//   return result;
-// };
-
 // const accountUpdateIntoDb = async (
 //   payload: Partial<IUser>,
 //   id: string
@@ -315,6 +289,117 @@ const createUserIntoDb = async (req: Request) => {
 
 //   return result;
 // };
+
+// delete user from db with password verification
+const deleteUserFromDb = async (userId: string, password: string) => {
+  const session = await mongoose.startSession();
+
+  try {
+    const result = await session.withTransaction(async () => {
+
+      const user = await User.findById(userId).session(session);
+      if (!user) {
+        throw new ApiError(
+          httpStatus.NOT_FOUND,
+          "User not found with id: " + userId
+        );
+      }
+
+      const isCorrectPassword: boolean = await bcrypt.compare(
+        password,
+        user.password
+      );
+
+      if (!isCorrectPassword) {
+        throw new ApiError(
+          httpStatus.BAD_REQUEST,
+          "Incorrect password! Account deletion failed."
+        );
+      }
+
+      // Check if user has uploaded images that need to be deleted from Cloudinary
+      const imagesToDelete = [];
+
+      if (user.profilePicture) {
+        imagesToDelete.push(user.profilePicture);
+      }
+
+      if (user.file) {
+        imagesToDelete.push(user.file);
+      }
+
+      // Handle portfolio files
+      if (user.portfolio && Array.isArray(user.portfolio)) {
+        user.portfolio.forEach((item: any) => {
+          if (item.fileUrl) {
+            imagesToDelete.push(item.fileUrl);
+          }
+        });
+      }
+
+      // Handle certificate files
+      if (user.certificates && Array.isArray(user.certificates)) {
+        user.certificates.forEach((item: any) => {
+          if (item.fileUrl) {
+            imagesToDelete.push(item.fileUrl);
+          }
+        });
+      }
+
+      // Handle company certificate files
+      if (user.companyCertificates && Array.isArray(user.companyCertificates)) {
+        user.companyCertificates.forEach((item: any) => {
+          if (item.fileUrl) {
+            imagesToDelete.push(item.fileUrl);
+          }
+        });
+      }
+
+      // Delete all associated files from Cloudinary
+      if (imagesToDelete.length > 0) {
+        try {
+          await Promise.all(
+            imagesToDelete.map(async (imageUrl) => {
+              try {
+                await fileUploader.deleteFromCloudinary(imageUrl);
+              } catch (deleteError) {
+                console.error(
+                  `Failed to delete file: ${imageUrl}`,
+                  deleteError
+                );
+              }
+            })
+          );
+        } catch (error) {
+          console.error("Error deleting files from Cloudinary:", error);
+        }
+      }
+
+      // Permanently delete the user from database
+      const deletedUser = await User.findByIdAndDelete(userId).session(session);
+
+      if (!deletedUser) {
+        throw new ApiError(
+          httpStatus.INTERNAL_SERVER_ERROR,
+          "Failed to delete user account"
+        );
+      }
+
+      return {
+        _id: deletedUser._id,
+        email: deletedUser.email,
+        firstName: deletedUser.firstName,
+        lastName: deletedUser.lastName,
+        deletedAt: new Date(),
+        message: "Account permanently deleted",
+      };
+    });
+
+    return result;
+  } finally {
+    await session.endSession();
+  }
+};
 
 const completeProfileIntoDB = async (req: Request & { user?: any }) => {
   const userId = req.user?.id;
@@ -781,7 +866,7 @@ export const userService = {
   // updateProfile,
   editUserProfile,
   // updateUserIntoDb,
-  // deleteUserFromDb,
+  deleteUserFromDb,
   // profileImageChange,
   // accountUpdateIntoDb,
   completeProfileIntoDB,

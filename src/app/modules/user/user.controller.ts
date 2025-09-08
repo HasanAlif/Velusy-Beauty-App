@@ -103,18 +103,38 @@ const completeProfile = catchAsync(
 //   });
 // });
 
-// *! delete user
-// const deleteMe = catchAsync(async (req: Request, res: Response) => {
-//   const id = req.user.id;
-//   const result = await userService.deleteUserFromDb(id);
+// *! delete user account with password verification
+const deleteMe = catchAsync(async (req: Request, res: Response) => {
+  const userId = req.user.id;
+  const { password, confirmDeletion } = req.body;
 
-//   sendResponse(res, {
-//     statusCode: httpStatus.OK,
-//     success: true,
-//     message: "User Deleted successfully!",
-//     data: result,
-//   });
-// });
+  if (!password) {
+    return sendResponse(res, {
+      statusCode: httpStatus.BAD_REQUEST,
+      success: false,
+      message: "Password is required for account deletion",
+      data: null,
+    });
+  }
+
+  if (!confirmDeletion) {
+    return sendResponse(res, {
+      statusCode: httpStatus.BAD_REQUEST,
+      success: false,
+      message: "You must confirm account deletion",
+      data: null,
+    });
+  }
+
+  const result = await userService.deleteUserFromDb(userId, password);
+
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "Account deleted permanently and successfully!",
+    data: result,
+  });
+});
 
 // Create or update professional profile
 const createOrUpdateProfile = catchAsync(
@@ -175,34 +195,38 @@ const updateSchedule = catchAsync(async (req: Request, res: Response) => {
 
 const editUserProfile = catchAsync(async (req: Request, res: Response) => {
   const userId = req.user.id;
-  
-  const { firstName, lastName, email, phoneNumber, city, streetAddress } = req.body;
-  
+
+  const { firstName, lastName, email, phoneNumber, city, streetAddress } =
+    req.body;
+
   const updateData: any = {};
-  
-  if (firstName !== undefined && firstName !== '') updateData.firstName = firstName;
-  if (lastName !== undefined && lastName !== '') updateData.lastName = lastName;
-  if (email !== undefined && email !== '') updateData.email = email;
-  if (phoneNumber !== undefined && phoneNumber !== '') updateData.phoneNumber = phoneNumber;
-  if (city !== undefined && city !== '') updateData.city = city;
-  if (streetAddress !== undefined && streetAddress !== '') updateData.streetAddress = streetAddress;
-  
+
+  if (firstName !== undefined && firstName !== "")
+    updateData.firstName = firstName;
+  if (lastName !== undefined && lastName !== "") updateData.lastName = lastName;
+  if (email !== undefined && email !== "") updateData.email = email;
+  if (phoneNumber !== undefined && phoneNumber !== "")
+    updateData.phoneNumber = phoneNumber;
+  if (city !== undefined && city !== "") updateData.city = city;
+  if (streetAddress !== undefined && streetAddress !== "")
+    updateData.streetAddress = streetAddress;
+
   // Handle profile image upload if provided
   if (req.file) {
     // Get current user to check if they have an existing profile picture
     const currentUser = await userService.findUserById(userId);
-    
+
     // Delete old image from Cloudinary if it exists
     if (currentUser?.profilePicture) {
-      console.log('Deleting old profile picture:', currentUser.profilePicture);
+      console.log("Deleting old profile picture:", currentUser.profilePicture);
       await fileUploader.deleteFromCloudinary(currentUser.profilePicture);
     }
-    
+
     // Set new image URL (Cloudinary automatically provides this via middleware)
     updateData.profilePicture = req.file.path; // Cloudinary URL from uploadSingleToCloudinary
-    console.log('New profile picture URL:', updateData.profilePicture);
+    console.log("New profile picture URL:", updateData.profilePicture);
   }
-  
+
   // Check if at least one field is being updated (including file)
   if (Object.keys(updateData).length === 0) {
     return sendResponse(res, {
@@ -214,7 +238,10 @@ const editUserProfile = catchAsync(async (req: Request, res: Response) => {
   }
 
   // Manual validation for provided fields
-  if (updateData.firstName && (updateData.firstName.length < 2 || updateData.firstName.length > 30)) {
+  if (
+    updateData.firstName &&
+    (updateData.firstName.length < 2 || updateData.firstName.length > 30)
+  ) {
     return sendResponse(res, {
       statusCode: httpStatus.BAD_REQUEST,
       success: false,
@@ -223,7 +250,10 @@ const editUserProfile = catchAsync(async (req: Request, res: Response) => {
     });
   }
 
-  if (updateData.lastName && (updateData.lastName.length < 2 || updateData.lastName.length > 30)) {
+  if (
+    updateData.lastName &&
+    (updateData.lastName.length < 2 || updateData.lastName.length > 30)
+  ) {
     return sendResponse(res, {
       statusCode: httpStatus.BAD_REQUEST,
       success: false,
@@ -300,7 +330,7 @@ export const userController = {
   // updateUser,
   // accountUpdate,
   completeProfile,
-  // deleteMe,
+  deleteMe,
   // profileImageChange,
   createOrUpdateProfile,
   updateSchedule,

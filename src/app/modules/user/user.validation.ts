@@ -147,6 +147,20 @@ const changePasswordValidationSchema = z.object({
     }),
 });
 
+const deleteAccountValidationSchema = z.object({
+  body: z.object({
+    password: z
+      .string({ required_error: "Password is required for account deletion" })
+      .min(8, "Password must be at least 8 characters long"),
+    confirmDeletion: z
+      .boolean({ required_error: "Deletion confirmation is required" })
+      .refine((val) => val === true, {
+        message:
+          "You must confirm account deletion by setting confirmDeletion to true",
+      }),
+  }),
+});
+
 export const UserValidation = {
   CreateUserValidationSchema,
   UserLoginValidationSchema,
@@ -155,4 +169,5 @@ export const UserValidation = {
   updateScheduleValidationSchema,
   editUserProfileValidationSchema,
   changePasswordValidationSchema,
+  deleteAccountValidationSchema,
 };

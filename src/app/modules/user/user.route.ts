@@ -78,7 +78,12 @@ router.patch(
   userController.changePassword
 );
 
-// delete me
-// router.delete("/delete-me", auth(), userController.deleteMe);
+// delete me with password verification
+router.delete(
+  "/delete-me",
+  validateRequest(UserValidation.deleteAccountValidationSchema),
+  auth(),
+  userController.deleteMe
+);
 
 export const userRoutes = router;
