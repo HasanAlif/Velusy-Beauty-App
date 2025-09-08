@@ -106,9 +106,6 @@ const createUserIntoDb = async (req: Request) => {
   }
 };
 
-
-
-
 // retrieve all users from the database also searching and filtering
 // const getUsersFromDb = async (
 //   params: IUserFilterRequest,
@@ -179,7 +176,6 @@ const createUserIntoDb = async (req: Request) => {
 //   };
 // };
 
-
 // update profile by user own profile using token or email and id
 // const updateProfile = async (req: Request) => {
 //   const file = req.file;
@@ -219,8 +215,6 @@ const createUserIntoDb = async (req: Request) => {
 
 //   return result;
 // };
-
-
 
 // update user data into database by id for admin
 // const updateUserIntoDb = async (payload: Partial<IUser>, id: string) => {
@@ -679,7 +673,10 @@ const editUserProfile = async (userId: string, profileData: Partial<IUser>) => {
 
     const user = await User.findById(objectId);
     if (!user) {
-      throw new ApiError(httpStatus.NOT_FOUND, "User not found with id: " + userId);
+      throw new ApiError(
+        httpStatus.NOT_FOUND,
+        "User not found with id: " + userId
+      );
     }
 
     const cleanedData = Object.fromEntries(
@@ -731,9 +728,51 @@ const findUserById = async (userId: string) => {
     const objectId = new mongoose.Types.ObjectId(userId);
     return await User.findById(objectId);
   } catch (error) {
-    console.error('Error finding user:', error);
+    console.error("Error finding user:", error);
     return null;
   }
+};
+
+const changePassword = async (
+  userId: string,
+  oldPassword: string,
+  newPassword: string,
+  confirmPassword: string
+) => {
+  const user = await User.findById(userId);
+
+  if (!user) {
+    throw new ApiError(httpStatus.NOT_FOUND, "User not found!");
+  }
+
+  const isCorrectPassword: boolean = await bcrypt.compare(
+    oldPassword,
+    user.password
+  );
+
+  if (!isCorrectPassword) {
+    throw new ApiError(httpStatus.BAD_REQUEST, "Old password is incorrect!");
+  }
+
+  if (newPassword !== confirmPassword) {
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      "New password and confirm password do not match!"
+    );
+  }
+
+  const hashedPassword = await bcrypt.hash(
+    newPassword,
+    Number(config.bcrypt_salt_rounds)
+  );
+
+  const result = await User.findByIdAndUpdate(
+    userId,
+    { password: hashedPassword },
+    { new: true }
+  );
+
+  return result;
 };
 
 export const userService = {
@@ -750,4 +789,5 @@ export const userService = {
   updateSchedule,
   getUserSchedule,
   findUserById,
+  changePassword,
 };

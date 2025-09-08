@@ -32,8 +32,6 @@ router.post(
   userController.createOrUpdateProfile
 );
 
-
-
 // image upload
 // router.put(
 //   "/profile-image",
@@ -53,8 +51,6 @@ router.post(
 //   userController.accountUpdate
 // );
 
-
-
 // update schedule
 router.patch(
   "/update-schedule",
@@ -72,6 +68,14 @@ router.patch(
   auth(),
   fileUploader.uploadSingleToCloudinary,
   userController.editUserProfile
+);
+
+// change password
+router.patch(
+  "/change-password",
+  validateRequest(UserValidation.changePasswordValidationSchema),
+  auth(),
+  userController.changePassword
 );
 
 // delete me

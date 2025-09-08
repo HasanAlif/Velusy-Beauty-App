@@ -128,6 +128,25 @@ const editUserProfileValidationSchema = z
     }
   );
 
+const changePasswordValidationSchema = z.object({
+  body: z
+    .object({
+      oldPassword: z
+        .string({ required_error: "Old password is required" })
+        .min(8, "Old password must be at least 8 characters long"),
+      newPassword: z
+        .string({ required_error: "New password is required" })
+        .min(8, "New password must be at least 8 characters long"),
+      confirmPassword: z
+        .string({ required_error: "Confirm password is required" })
+        .min(8, "Confirm password must be at least 8 characters long"),
+    })
+    .refine((data) => data.newPassword === data.confirmPassword, {
+      message: "New password and confirm password do not match",
+      path: ["confirmPassword"],
+    }),
+});
+
 export const UserValidation = {
   CreateUserValidationSchema,
   UserLoginValidationSchema,
@@ -135,4 +154,5 @@ export const UserValidation = {
   userOptionalProfileSchema,
   updateScheduleValidationSchema,
   editUserProfileValidationSchema,
+  changePasswordValidationSchema,
 };

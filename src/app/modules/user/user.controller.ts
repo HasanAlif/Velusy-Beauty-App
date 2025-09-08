@@ -173,7 +173,7 @@ const updateSchedule = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
-export const editUserProfile = catchAsync(async (req: Request, res: Response) => {
+const editUserProfile = catchAsync(async (req: Request, res: Response) => {
   const userId = req.user.id;
   
   const { firstName, lastName, email, phoneNumber, city, streetAddress } = req.body;
@@ -266,6 +266,33 @@ export const editUserProfile = catchAsync(async (req: Request, res: Response) =>
   });
 });
 
+const changePassword = catchAsync(async (req: Request, res: Response) => {
+  const { oldPassword, newPassword, confirmPassword } = req.body;
+
+  if (!oldPassword || !newPassword || !confirmPassword) {
+    return sendResponse(res, {
+      statusCode: httpStatus.BAD_REQUEST,
+      success: false,
+      message: "oldPassword, newPassword, and confirmPassword are required",
+      data: null,
+    });
+  }
+
+  const result = await userService.changePassword(
+    req.user.id,
+    oldPassword,
+    newPassword,
+    confirmPassword
+  );
+
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus.OK,
+    message: "Password changed successfully",
+    data: result,
+  });
+});
+
 export const userController = {
   createUser,
   // getUsers,
@@ -279,4 +306,5 @@ export const userController = {
   updateSchedule,
   getUserSchedule,
   editUserProfile,
+  changePassword,
 };
