@@ -12,6 +12,7 @@ import { IPaginationOptions } from "../../../interfaces/paginations";
 import { userSearchAbleFields } from "./user.costant";
 import { IUserFilterRequest } from "./user.interface";
 import mongoose from "mongoose";
+import { getCoordinates } from "../../../utils/geoCoding";
 
 // Create a new user in the database.
 const createUserIntoDb = async (req: Request) => {
@@ -30,6 +31,21 @@ const createUserIntoDb = async (req: Request) => {
 
   try {
     const result = await session.withTransaction(async () => {
+      let coordinates: { latitude: number | null; longitude: number | null } = {
+        latitude: null,
+        longitude: null,
+      };
+
+      if (userPayload.city && userPayload.streetAddress) {
+        try {
+          coordinates = await getCoordinates(
+            `${userPayload.streetAddress}, ${userPayload.city}`
+          );
+        } catch (geocodingError) {
+          console.error("Geocoding failed:", geocodingError);
+        }
+      }
+
       const existingUser = await User.findOne({
         email: userPayload.email,
       }).session(session);
@@ -67,6 +83,12 @@ const createUserIntoDb = async (req: Request) => {
         userPayload.password!,
         Number(config.bcrypt_salt_rounds)
       );
+
+      // Add coordinates to user payload
+      if (coordinates.latitude !== null && coordinates.longitude !== null) {
+        userPayload.latitude = coordinates.latitude;
+        userPayload.longitude = coordinates.longitude;
+      }
 
       const createdUser = await User.create(
         [
@@ -296,7 +318,6 @@ const deleteUserFromDb = async (userId: string, password: string) => {
 
   try {
     const result = await session.withTransaction(async () => {
-
       const user = await User.findById(userId).session(session);
       if (!user) {
         throw new ApiError(
@@ -417,6 +438,35 @@ const completeProfileIntoDB = async (req: Request & { user?: any }) => {
     );
   }
 
+  // Get coordinates if city or streetAddress are being updated
+  if (profileData.city || profileData.streetAddress) {
+    try {
+      const currentCity = profileData.city || userInfo.city;
+      const currentStreetAddress =
+        profileData.streetAddress || userInfo.streetAddress;
+
+      // Only geocode if we have both components
+      if (currentCity && currentStreetAddress) {
+        const fullAddress = `${currentStreetAddress}, ${currentCity}`;
+        const coordinates = await getCoordinates(fullAddress);
+        profileData.latitude = coordinates.latitude;
+        profileData.longitude = coordinates.longitude;
+      } else {
+        console.log(
+          "Incomplete address information for geocoding - city:",
+          currentCity,
+          "streetAddress:",
+          currentStreetAddress
+        );
+      }
+    } catch (geocodingError) {
+      console.error(
+        "Geocoding failed during profile completion:",
+        geocodingError
+      );
+    }
+  }
+
   // Check if this is a new profile completion or an update
   // Using existing fields to determine if profile is complete
   const isProfileComplete =
@@ -433,6 +483,8 @@ const completeProfileIntoDB = async (req: Request & { user?: any }) => {
       phoneNumber: 1,
       city: 1,
       streetAddress: 1,
+      latitude: 1,
+      longitude: 1,
       profileImage: 1,
       profilePicture: 1,
       role: 1,
@@ -449,7 +501,7 @@ const completeProfileIntoDB = async (req: Request & { user?: any }) => {
 };
 
 // Create or update user profile with professional details
-const createOrUpdateProfile = async (req: Request) => {
+const createOrUpdateProfile = async (req: Request & { user?: any }) => {
   const {
     fullName,
     userName,
@@ -463,40 +515,33 @@ const createOrUpdateProfile = async (req: Request) => {
     schedule,
   } = req.body;
 
+  const userId = req.user?.id;
+  if (!userId) {
+    throw new ApiError(httpStatus.UNAUTHORIZED, "User not authenticated");
+  }
+
   try {
-    let user = await User.findOne({ userName });
+    let user = await User.findById(userId);
 
     if (!user) {
-      const newUserData = {
-        fullName,
-        userName,
-        personalDescription,
-        serviceType,
-        serviceCategory,
-        language,
-        portfolio: portfolio || [],
-        certificates: certificates || [],
-        companyCertificates: companyCertificates || [],
-        schedule: schedule || {},
-        role: UserRole.PROFESSIONAL, // Set as professional by default
-        status: UserStatus.ACTIVE,
-        city: "Unknown", // Required field
-        streetAddress: "Unknown", // Required field
-      };
-
-      user = await User.create(newUserData);
+      throw new ApiError(
+        httpStatus.NOT_FOUND,
+        "User not found. Please register first before creating a professional profile."
+      );
     } else {
       // Update existing user
       const updateData = {
         ...(fullName && { fullName }),
+        ...(userName && { userName }),
         ...(personalDescription && { personalDescription }),
+        ...(schedule && { schedule }),
         ...(serviceType && { serviceType }),
         ...(serviceCategory && { serviceCategory }),
-        ...(language && { language }),
         ...(portfolio && { portfolio }),
+        ...(language && { language }),
         ...(certificates && { certificates }),
         ...(companyCertificates && { companyCertificates }),
-        ...(schedule && { schedule }),
+        role: UserRole.PROFESSIONAL,
       };
 
       const updatedUser = await User.findByIdAndUpdate(user._id, updateData, {
@@ -764,6 +809,30 @@ const editUserProfile = async (userId: string, profileData: Partial<IUser>) => {
       );
     }
 
+    if (profileData.city || profileData.streetAddress) {
+      try {
+        const currentCity = profileData.city || user.city;
+        const currentStreetAddress =
+          profileData.streetAddress || user.streetAddress;
+
+        if (currentCity && currentStreetAddress) {
+          const fullAddress = `${currentStreetAddress}, ${currentCity}`;
+          const coordinates = await getCoordinates(fullAddress);
+          profileData.latitude = coordinates.latitude;
+          profileData.longitude = coordinates.longitude;
+        } else {
+          console.log(
+            "Incomplete address information for geocoding - city:",
+            currentCity,
+            "streetAddress:",
+            currentStreetAddress
+          );
+        }
+      } catch (geocodingError) {
+        console.error("Geocoding failed during profile edit:", geocodingError);
+      }
+    }
+
     const cleanedData = Object.fromEntries(
       Object.entries(profileData).filter(([_, value]) => value !== undefined)
     );
@@ -779,6 +848,8 @@ const editUserProfile = async (userId: string, profileData: Partial<IUser>) => {
         phoneNumber: 1,
         city: 1,
         streetAddress: 1,
+        latitude: 1,
+        longitude: 1,
         profilePicture: 1,
         role: 1,
         createdAt: 1,
@@ -860,6 +931,66 @@ const changePassword = async (
   return result;
 };
 
+// Update user coordinates based on their address
+const updateUserCoordinates = async (userId: string) => {
+  try {
+    const user = await User.findById(userId);
+
+    if (!user) {
+      throw new ApiError(httpStatus.NOT_FOUND, "User not found!");
+    }
+
+    if (!user.city || !user.streetAddress) {
+      throw new ApiError(
+        httpStatus.BAD_REQUEST,
+        "User must have city and street address to update coordinates"
+      );
+    }
+
+    const coordinates = await getCoordinates(
+      `${user.streetAddress}, ${user.city}`
+    );
+
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      {
+        latitude: coordinates.latitude,
+        longitude: coordinates.longitude,
+      },
+      {
+        new: true,
+        select: {
+          _id: 1,
+          firstName: 1,
+          lastName: 1,
+          city: 1,
+          streetAddress: 1,
+          latitude: 1,
+          longitude: 1,
+          updatedAt: 1,
+        },
+      }
+    );
+
+    return {
+      success: true,
+      message: "Coordinates updated successfully",
+      data: updatedUser,
+      coordinates: coordinates,
+    };
+  } catch (error) {
+    console.error("Error updating user coordinates:", error);
+    if (error instanceof ApiError) {
+      throw error;
+    }
+    throw new ApiError(
+      httpStatus.INTERNAL_SERVER_ERROR,
+      "Error updating coordinates: " +
+        (error instanceof Error ? error.message : "Unknown error")
+    );
+  }
+};
+
 export const userService = {
   createUserIntoDb,
   // getUsersFromDb,
@@ -875,4 +1006,5 @@ export const userService = {
   getUserSchedule,
   findUserById,
   changePassword,
+  updateUserCoordinates,
 };

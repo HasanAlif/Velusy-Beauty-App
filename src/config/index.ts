@@ -25,4 +25,5 @@ export default {
 
   site_name: process.env.WEBSITE_NAME,
   contact_mail: process.env.CONTACT_MAIL,
+  geocoding_api_key: process.env.GEOCODING_API_KEY,
 };

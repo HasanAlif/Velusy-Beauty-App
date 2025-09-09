@@ -161,6 +161,52 @@ const deleteAccountValidationSchema = z.object({
   }),
 });
 
+const professionalProfileValidationSchema = z.object({
+  body: z.object({
+    fullName: z.string().min(2).max(100).optional(),
+    userName: z.string().min(3).max(50).optional(),
+    personalDescription: z.string().max(1000).optional(),
+    serviceType: z.string().max(100).optional(),
+    serviceCategory: z.string().max(100).optional(),
+    language: z.string().max(50).optional(),
+    portfolio: z
+      .array(
+        z.object({
+          fileUrl: z.string().url(),
+          fileType: z.string(),
+        })
+      )
+      .optional(),
+    certificates: z
+      .array(
+        z.object({
+          fileUrl: z.string().url(),
+          fileType: z.string(),
+        })
+      )
+      .optional(),
+    companyCertificates: z
+      .array(
+        z.object({
+          fileUrl: z.string().url(),
+          fileType: z.string(),
+        })
+      )
+      .optional(),
+    schedule: z
+      .record(
+        z.string(),
+        z.array(
+          z.object({
+            time: z.string(),
+            status: z.string(),
+          })
+        )
+      )
+      .optional(),
+  }),
+});
+
 export const UserValidation = {
   CreateUserValidationSchema,
   UserLoginValidationSchema,
@@ -170,4 +216,5 @@ export const UserValidation = {
   editUserProfileValidationSchema,
   changePasswordValidationSchema,
   deleteAccountValidationSchema,
+  professionalProfileValidationSchema,
 };

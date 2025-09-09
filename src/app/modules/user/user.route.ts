@@ -28,6 +28,8 @@ router.post(
 // Create or update professional profile
 router.post(
   "/create-update-profile",
+  auth(),
+  validateRequest(UserValidation.professionalProfileValidationSchema),
   fileUploader.profileMultipleFiles,
   userController.createOrUpdateProfile
 );
@@ -85,5 +87,8 @@ router.delete(
   auth(),
   userController.deleteMe
 );
+
+// update user coordinates based on current address
+router.patch("/update-coordinates", auth(), userController.updateCoordinates);
 
 export const userRoutes = router;

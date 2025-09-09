@@ -29,6 +29,8 @@ export interface IUser extends Document {
   phoneNumber?: string;
   city: string;
   streetAddress: string;
+  latitude: number;
+  longitude: number;
   profilePicture?: string;
   file?: string;
   schedule?: { [date: string]: { time: string; status: string }[] };
@@ -102,6 +104,12 @@ const UserSchema = new Schema<IUser>(
     streetAddress: {
       type: String,
       required: true,
+    },
+    latitude: {
+      type: Number,
+    },
+    longitude: {
+      type: Number,
     },
     profilePicture: {
       type: String,

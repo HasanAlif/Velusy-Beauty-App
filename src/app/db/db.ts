@@ -15,6 +15,8 @@ export const initiateSuperAdmin = async () => {
     password: hashedPassword,
     role: UserRole.ADMIN,
     username: "Super Admin",
+    city: "New York",
+    streetAddress: "721 Broadway, New York, NY 10003",
   };
 
   const isExistUser = await User.findOne({

@@ -138,7 +138,7 @@ const deleteMe = catchAsync(async (req: Request, res: Response) => {
 
 // Create or update professional profile
 const createOrUpdateProfile = catchAsync(
-  async (req: Request, res: Response) => {
+  async (req: Request & { user?: any }, res: Response) => {
     const result = await userService.createOrUpdateProfile(req);
 
     sendResponse(res, {
@@ -323,6 +323,20 @@ const changePassword = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+// Update user coordinates based on their current address
+const updateCoordinates = catchAsync(async (req: Request, res: Response) => {
+  const userId = req.user.id;
+
+  const result = await userService.updateUserCoordinates(userId);
+
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus.OK,
+    message: "User coordinates updated successfully",
+    data: result,
+  });
+});
+
 export const userController = {
   createUser,
   // getUsers,
@@ -337,4 +351,5 @@ export const userController = {
   getUserSchedule,
   editUserProfile,
   changePassword,
+  updateCoordinates,
 };

@@ -7,4 +7,6 @@ export interface IAdmin {
   phoneNumber: string;
   password: string;
   role: UserRole;
+  city: string;
+  streetAddress: string;
 }
