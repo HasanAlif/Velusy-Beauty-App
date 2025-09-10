@@ -126,3 +126,26 @@ export const deleteService = catchAsync(
     });
   }
 );
+
+// Get service details with provider information
+export const serviceDetails = catchAsync(async (req: Request, res) => {
+  const { serviceId } = req.params;
+
+  if (!serviceId) {
+    return sendResponse(res, {
+      statusCode: httpStatus.BAD_REQUEST,
+      success: false,
+      message: "Service ID is required",
+      data: null,
+    });
+  }
+
+  const serviceWithProvider = await ServiceService.serviceDetails(serviceId);
+
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "Service details with provider information retrieved successfully",
+    data: serviceWithProvider,
+  });
+});

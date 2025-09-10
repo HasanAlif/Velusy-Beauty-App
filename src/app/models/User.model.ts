@@ -43,7 +43,6 @@ export interface IUser extends Document {
   password: string;
   role: UserRole;
   status: UserStatus;
-  isDeleted: boolean;
   fcmToken?: string;
   resetPasswordOtp?: string;
   resetPasswordOtpExpiry?: Date;
@@ -155,10 +154,6 @@ const UserSchema = new Schema<IUser>(
       type: String,
       enum: Object.values(UserStatus),
       default: UserStatus.ACTIVE,
-    },
-    isDeleted: {
-      type: Boolean,
-      default: false,
     },
     fcmToken: {
       type: String,

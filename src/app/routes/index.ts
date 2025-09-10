@@ -4,6 +4,7 @@ import { notificationsRoute } from "../modules/notification/notification.routes"
 import { userRoutes } from "../modules/user/user.route";
 import { serviceRoutes } from "../modules/service/service.routes";
 import { supportRoutes } from "../modules/support/support.routes";
+import { DistanceRoutes } from "../modules/distance/distance.routes";
 
 const router = express.Router();
 
@@ -27,6 +28,10 @@ const moduleRoutes = [
   {
     path: "/support",
     route: supportRoutes,
+  },
+  {
+    path: "/distance",
+    route: DistanceRoutes,
   },
 ];
 

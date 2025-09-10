@@ -10,7 +10,6 @@ export interface IUser {
   profession: string;
   promoCode: string;
   status: UserStatus;
-  isDeleted: boolean;
   createdAt?: Date;
   updatedAt?: Date;
 }

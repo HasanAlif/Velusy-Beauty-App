@@ -8,6 +8,7 @@ import {
   getServiceById,
   updateService,
   deleteService,
+  serviceDetails,
 } from "./service.controller";
 import { fileUploader } from "../../../helpars/fileUploader";
 import { UserRole } from "../../models";
@@ -35,6 +36,13 @@ router.get(
   auth(),
   validateRequest(ServiceValidation.listQuery),
   listServices
+);
+
+router.get(
+  "/details/:serviceId",
+  validateRequest(ServiceValidation.serviceDetailsSchema),
+  auth(UserRole.GUEST),
+  serviceDetails
 );
 
 router.get("/:id", getServiceById);

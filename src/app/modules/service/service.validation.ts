@@ -67,4 +67,17 @@ const listQuery = z.object({
   }),
 });
 
-export const ServiceValidation = { createSchema, updateSchema, listQuery };
+const serviceDetailsSchema = z.object({
+  params: z.object({
+    serviceId: z
+      .string({ required_error: "serviceId is required" })
+      .regex(/^[0-9a-fA-F]{24}$/, "serviceId must be a valid MongoDB ObjectId"),
+  }),
+});
+
+export const ServiceValidation = {
+  createSchema,
+  updateSchema,
+  listQuery,
+  serviceDetailsSchema,
+};
