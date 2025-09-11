@@ -729,7 +729,7 @@ const updateSchedule = async (
             httpStatus.BAD_REQUEST,
             `Invalid status ${
               slot.status
-            }. Must be one of: ${validStatuses.join(", ")}`
+            }. Must be one of: ${validStatuses.join(", ")} in uppercase`
           );
         }
       });
