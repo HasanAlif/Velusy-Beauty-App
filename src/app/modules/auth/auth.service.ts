@@ -85,6 +85,8 @@ const getMyProfile = async (userId: string) => {
     status: 1,
     email: 1,
     profilePicture: 1,
+    city: 1,
+    streetAddress: 1,
     createdAt: 1,
     updatedAt: 1,
   });
