@@ -6,6 +6,7 @@ import sendResponse from "../../../shared/sendResponse";
 import { userFilterableFields } from "./user.costant";
 import { userService } from "./user.service";
 import { fileUploader } from "../../../helpars/fileUploader";
+import { getAvailableProfessions } from "../../models/User.model";
 
 const createUser = catchAsync(async (req: Request, res: Response) => {
   const result = await userService.createUserIntoDb(req);
@@ -337,6 +338,18 @@ const updateCoordinates = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+// Get available professions (category names)
+const getAvailableProfs = catchAsync(async (req: Request, res: Response) => {
+  const professions = await getAvailableProfessions();
+
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "Available professions retrieved successfully!",
+    data: professions,
+  });
+});
+
 export const userController = {
   createUser,
   // getUsers,
@@ -352,4 +365,5 @@ export const userController = {
   editUserProfile,
   changePassword,
   updateCoordinates,
+  getAvailableProfs,
 };

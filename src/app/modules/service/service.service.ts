@@ -5,6 +5,7 @@ import httpStatus from "http-status";
 import { IService } from "./service.model";
 import { Types } from "mongoose";
 import { User } from "../../models";
+import { Category } from "../admin/category.model";
 
 type ListArgs = {
   search?: string;
@@ -12,6 +13,40 @@ type ListArgs = {
   limit?: number;
   providerId?: string;
   userId: string;
+};
+
+const getAllCategories = async (options: {
+  search?: string;
+  page?: number;
+  limit?: number;
+}) => {
+  const { search, page = 1, limit = 20 } = options;
+
+  let query = Category.find({});
+
+  if (search) {
+    query = query.find({
+      name: { $regex: search, $options: "i" },
+    });
+  }
+
+  const total = await Category.countDocuments(query.getFilter());
+
+  const categories = await query
+    .sort({ createdAt: -1 })
+    .skip((page - 1) * limit)
+    .limit(limit)
+    .lean();
+
+  return {
+    categories,
+    pagination: {
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    },
+  };
 };
 
 const createIntoDb = async (payload: Partial<IService>): Promise<IService> => {
@@ -185,6 +220,7 @@ const serviceDetails = async (serviceId: string) => {
 };
 
 export const ServiceService = {
+  getAllCategories,
   createIntoDb,
   getListFromDb,
   getByIdFromDb,

@@ -9,11 +9,14 @@ import {
   updateService,
   deleteService,
   serviceDetails,
+  getCategories,
 } from "./service.controller";
 import { fileUploader } from "../../../helpars/fileUploader";
 import { UserRole } from "../../models";
 
 const router = express.Router();
+
+router.get("/categories", auth(UserRole.GUEST), getCategories);
 
 router.post(
   "/add",

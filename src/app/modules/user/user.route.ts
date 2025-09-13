@@ -91,4 +91,7 @@ router.delete(
 // update user coordinates based on current address
 router.patch("/update-coordinates", auth(), userController.updateCoordinates);
 
+// get available professions (category names)
+router.get("/available-professions", userController.getAvailableProfs);
+
 export const userRoutes = router;

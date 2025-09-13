@@ -2,8 +2,20 @@ import httpStatus from "http-status";
 import sendResponse from "../../../shared/sendResponse";
 import catchAsync from "../../../shared/catchAsync";
 import { ServiceService } from "./service.service";
-import { Request } from "express";
+import { Request, Response } from "express";
 import { IService } from "./service.model";
+
+export const getCategories = catchAsync(async (req: Request, res: Response) => {
+  const result = await ServiceService.getAllCategories(req.query);
+
+  sendResponse(res, {
+    statusCode: 200,
+    success: true,
+    message: "Categories retrieved successfully",
+    meta: result.pagination,
+    data: result.categories,
+  });
+});
 
 export const createService = catchAsync(
   async (req: Request & { user?: any }, res) => {

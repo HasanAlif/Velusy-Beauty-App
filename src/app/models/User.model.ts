@@ -1,4 +1,5 @@
 import mongoose, { Document, Schema } from "mongoose";
+import { Category } from "../modules/admin/category.model";
 
 export enum UserRole {
   ADMIN = "ADMIN",
@@ -55,6 +56,19 @@ const portfolioSchema = new Schema<IPortfolio>({
   fileType: { type: String, required: true },
 });
 
+// Custom validator for profession field to check against category names
+const validateProfession = async function(professionValue: string): Promise<boolean> {
+  if (!professionValue) return true;
+  
+  try {
+    const category = await Category.findOne({ name: professionValue });
+    return !!category;
+  } catch (error) {
+    console.error('Error validating profession:', error);
+    return false;
+  }
+};
+
 const UserSchema = new Schema<IUser>(
   {
     firstName: {
@@ -76,6 +90,10 @@ const UserSchema = new Schema<IUser>(
     profession: {
       type: String,
       trim: true,
+      validate: {
+        validator: validateProfession,
+        message: 'Profession must be a valid category name created by admin'
+      }
     },
     personalDescription: {
       type: String,
@@ -185,3 +203,14 @@ export enum NotificationType {
 }
 
 export const User = mongoose.model<IUser>("User", UserSchema);
+
+// Helper function to get available professions (category names)
+export const getAvailableProfessions = async (): Promise<string[]> => {
+  try {
+    const categories = await Category.find({}, 'name').lean();
+    return categories.map(category => category.name);
+  } catch (error) {
+    console.error('Error fetching available professions:', error);
+    return [];
+  }
+};

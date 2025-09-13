@@ -170,6 +170,10 @@ const professionalProfileValidationSchema = z.object({
   body: z.object({
     fullName: z.string().min(2).max(100).optional(),
     userName: z.string().min(3).max(50).optional(),
+    profession: z
+      .string()
+      .max(100)
+      .optional(),
     personalDescription: z.string().max(1000).optional(),
     serviceType: z.string().max(100).optional(),
     serviceCategory: z.string().max(100).optional(),
