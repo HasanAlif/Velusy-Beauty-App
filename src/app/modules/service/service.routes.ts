@@ -10,6 +10,7 @@ import {
   deleteService,
   serviceDetails,
   getCategories,
+  getServicesByCategory,
 } from "./service.controller";
 import { fileUploader } from "../../../helpars/fileUploader";
 import { UserRole } from "../../models";
@@ -17,6 +18,13 @@ import { UserRole } from "../../models";
 const router = express.Router();
 
 router.get("/categories", auth(UserRole.GUEST), getCategories);
+
+router.get(
+  "/category/:categoryId",
+  auth(UserRole.GUEST),
+  validateRequest(ServiceValidation.categoryServicesSchema),
+  getServicesByCategory
+);
 
 router.post(
   "/add",

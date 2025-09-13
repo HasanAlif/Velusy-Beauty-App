@@ -2,6 +2,10 @@ import { z } from "zod";
 
 const createSchema = z.object({
   body: z.object({
+    categoryId: z
+      .string()
+      .regex(/^[0-9a-fA-F]{24}$/, "Invalid category ID format")
+      .optional(),
     name: z.string({ required_error: "Service name is required" }).min(2),
     atHome: z
       .union([z.boolean(), z.string()])
@@ -29,6 +33,10 @@ const createSchema = z.object({
 
 const updateSchema = z.object({
   body: z.object({
+    categoryId: z
+      .string()
+      .regex(/^[0-9a-fA-F]{24}$/, "Invalid category ID format")
+      .optional(),
     name: z.string().min(2).optional(),
     atHome: z
       .union([z.boolean(), z.string()])
@@ -75,9 +83,26 @@ const serviceDetailsSchema = z.object({
   }),
 });
 
+const categoryServicesSchema = z.object({
+  params: z.object({
+    categoryId: z
+      .string({ required_error: "categoryId is required" })
+      .regex(
+        /^[0-9a-fA-F]{24}$/,
+        "categoryId must be a valid MongoDB ObjectId"
+      ),
+  }),
+  query: z.object({
+    search: z.string().optional(),
+    page: z.coerce.number().min(1).optional(),
+    limit: z.coerce.number().min(1).max(100).optional(),
+  }),
+});
+
 export const ServiceValidation = {
   createSchema,
   updateSchema,
   listQuery,
   serviceDetailsSchema,
+  categoryServicesSchema,
 };

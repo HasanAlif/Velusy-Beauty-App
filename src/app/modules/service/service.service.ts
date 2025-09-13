@@ -49,8 +49,48 @@ const getAllCategories = async (options: {
   };
 };
 
-const createIntoDb = async (payload: Partial<IService>): Promise<IService> => {
-  const created = await Service.create(payload);
+const createIntoDb = async (
+  payload: Partial<IService>,
+  userId: string
+): Promise<IService> => {
+  let categoryId = payload.categoryId;
+
+  // If categoryId is not provided, auto-detect from user's profession
+  if (!categoryId) {
+    const user = await User.findById(userId);
+    if (!user) {
+      throw new ApiError(httpStatus.NOT_FOUND, "User not found");
+    }
+
+    if (!user.profession) {
+      throw new ApiError(
+        httpStatus.BAD_REQUEST,
+        "User profession is required to create a service. Please update your profile with a valid profession."
+      );
+    }
+
+    const category = await Category.findOne({ name: user.profession });
+    if (!category) {
+      throw new ApiError(
+        httpStatus.BAD_REQUEST,
+        `No category found for profession "${user.profession}". Please contact admin to add this category.`
+      );
+    }
+
+    categoryId = new Types.ObjectId(category._id);
+  } else {
+    const categoryExists = await Category.findById(categoryId);
+    if (!categoryExists) {
+      throw new ApiError(httpStatus.BAD_REQUEST, "Category not found");
+    }
+  }
+
+  const servicePayload = {
+    ...payload,
+    categoryId,
+  };
+
+  const created = await Service.create(servicePayload);
   return created;
 };
 
@@ -106,6 +146,13 @@ const updateIntoDb = async (
     existing.providerId.toString() !== requester.id
   ) {
     throw new ApiError(httpStatus.FORBIDDEN, "You cannot update this service");
+  }
+
+  if (payload.categoryId) {
+    const categoryExists = await Category.findById(payload.categoryId);
+    if (!categoryExists) {
+      throw new ApiError(httpStatus.BAD_REQUEST, "Category not found");
+    }
   }
 
   Object.assign(existing, payload, { updatedAt: new Date() });
@@ -219,12 +266,61 @@ const serviceDetails = async (serviceId: string) => {
   }
 };
 
+const getServicesByCategory = async ({
+  categoryId,
+  search,
+  page = 1,
+  limit = 20,
+}: {
+  categoryId: string;
+  search?: string;
+  page?: number;
+  limit?: number;
+}) => {
+  const categoryExists = await Category.findById(categoryId);
+  if (!categoryExists) {
+    throw new ApiError(httpStatus.NOT_FOUND, "Category not found");
+  }
+
+  const filter: any = {
+    categoryId: new Types.ObjectId(categoryId),
+  };
+
+  let query = Service.find(filter);
+  if (search) {
+    query = query.find({ $text: { $search: search } });
+  }
+
+  const total = await Service.countDocuments(query.getFilter());
+  const services = await query
+    .sort({ createdAt: -1 })
+    .skip((page - 1) * limit)
+    .limit(limit)
+    .populate(
+      "providerId",
+      "userName profession profilePicture city streetAddress schedule"
+    )
+    .lean();
+
+  return {
+    category: categoryExists,
+    services,
+    pagination: {
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    },
+  };
+};
+
 export const ServiceService = {
   getAllCategories,
   createIntoDb,
   getListFromDb,
   getByIdFromDb,
   serviceDetails,
+  getServicesByCategory,
   updateIntoDb,
   deleteFromDb,
 };

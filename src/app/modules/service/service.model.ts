@@ -3,6 +3,7 @@ import mongoose, { Document, Schema, Types } from "mongoose";
 export interface IService extends Document {
   _id: string;
   providerId: Types.ObjectId;
+  categoryId: Types.ObjectId;
   name: string;
   atHome: boolean;
   atProviderLocation: boolean;
@@ -18,6 +19,12 @@ const ServiceSchema = new Schema<IService>(
     providerId: {
       type: Schema.Types.ObjectId,
       ref: "User",
+      required: true,
+      index: true,
+    },
+    categoryId: {
+      type: Schema.Types.ObjectId,
+      ref: "Category",
       required: true,
       index: true,
     },
@@ -51,5 +58,6 @@ const ServiceSchema = new Schema<IService>(
 );
 
 ServiceSchema.index({ name: "text", description: "text" });
+ServiceSchema.index({ categoryId: 1, providerId: 1 });
 
 export const Service = mongoose.model<IService>("Service", ServiceSchema);

@@ -29,6 +29,7 @@ export const createService = catchAsync(
 
     const payload = {
       providerId: req.user.id,
+      categoryId: req.body.categoryId, // Optional - will be auto-detected if not provided
       name: req.body.name,
       atHome: req.body.atHome,
       atProviderLocation: req.body.atProviderLocation,
@@ -37,7 +38,10 @@ export const createService = catchAsync(
       photo,
     };
 
-    const result = await ServiceService.createIntoDb(payload as IService);
+    const result = await ServiceService.createIntoDb(
+      payload as IService,
+      req.user.id
+    );
     sendResponse(res, {
       statusCode: httpStatus.CREATED,
       success: true,
@@ -161,3 +165,28 @@ export const serviceDetails = catchAsync(async (req: Request, res) => {
     data: serviceWithProvider,
   });
 });
+
+export const getServicesByCategory = catchAsync(
+  async (req: Request, res: Response) => {
+    const { categoryId } = req.params;
+    const { search, page, limit } = req.query;
+
+    const result = await ServiceService.getServicesByCategory({
+      categoryId,
+      search: search as string,
+      page: page ? parseInt(page as string) : 1,
+      limit: limit ? parseInt(limit as string) : 20,
+    });
+
+    sendResponse(res, {
+      statusCode: httpStatus.OK,
+      success: true,
+      message: "Services retrieved successfully",
+      meta: result.pagination,
+      data: {
+        category: result.category,
+        services: result.services,
+      },
+    });
+  }
+);
