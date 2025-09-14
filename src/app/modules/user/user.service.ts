@@ -473,6 +473,20 @@ const completeProfileIntoDB = async (req: Request & { user?: any }) => {
     userInfo.firstName && userInfo.lastName && userInfo.phoneNumber;
   const status = isProfileComplete ? httpStatus.OK : httpStatus.CREATED;
 
+  // Check if the profile will be complete after this update
+  const willBeComplete =
+    (profileData.firstName || userInfo.firstName) &&
+    (profileData.lastName || userInfo.lastName) &&
+    (profileData.phoneNumber || userInfo.phoneNumber);
+
+  // Only set isVerified to true for PROFESSIONAL users with complete profiles
+  if (willBeComplete && userInfo.role === "PROFESSIONAL") {
+    profileData.isVerified = true;
+    console.log(
+      `Setting isVerified=true for PROFESSIONAL user: ${userInfo.email}`
+    );
+  }
+
   const updatedProfile = await User.findByIdAndUpdate(userId, profileData, {
     new: true,
     select: {
@@ -489,6 +503,7 @@ const completeProfileIntoDB = async (req: Request & { user?: any }) => {
       profilePicture: 1,
       role: 1,
       status: 1,
+      isVerified: 1,
       createdAt: 1,
       updatedAt: 1,
     },
@@ -622,6 +637,19 @@ const createOrUpdateProfile = async (req: Request & { user?: any }) => {
       }
 
       await user.save();
+    }
+
+    // Check if profile is complete and set isVerified for PROFESSIONAL users
+    if (user && user.role === "PROFESSIONAL") {
+      const isProfileComplete =
+        user.firstName && user.lastName && user.phoneNumber;
+      if (isProfileComplete && !user.isVerified) {
+        user.isVerified = true;
+        await user.save();
+        console.log(
+          `Setting isVerified=true for PROFESSIONAL user: ${user.email}`
+        );
+      }
     }
 
     // Ensure user is not null before accessing properties
@@ -837,6 +865,21 @@ const editUserProfile = async (userId: string, profileData: Partial<IUser>) => {
       Object.entries(profileData).filter(([_, value]) => value !== undefined)
     );
 
+    // Check if profile will be complete after this update for PROFESSIONAL users
+    if (user.role === "PROFESSIONAL") {
+      const willBeComplete =
+        (cleanedData.firstName || user.firstName) &&
+        (cleanedData.lastName || user.lastName) &&
+        (cleanedData.phoneNumber || user.phoneNumber);
+
+      if (willBeComplete && !user.isVerified) {
+        cleanedData.isVerified = true;
+        console.log(
+          `Setting isVerified=true for PROFESSIONAL user: ${user.email}`
+        );
+      }
+    }
+
     const result = await User.findByIdAndUpdate(objectId, cleanedData, {
       new: true,
       runValidators: true,
@@ -852,6 +895,7 @@ const editUserProfile = async (userId: string, profileData: Partial<IUser>) => {
         longitude: 1,
         profilePicture: 1,
         role: 1,
+        isVerified: 1,
         createdAt: 1,
         updatedAt: 1,
       },
