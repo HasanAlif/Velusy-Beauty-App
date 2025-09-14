@@ -11,6 +11,7 @@ import {
   serviceDetails,
   getCategories,
   getServicesByCategory,
+  getIndividualServiceDetails,
 } from "./service.controller";
 import { fileUploader } from "../../../helpars/fileUploader";
 import { UserRole } from "../../models";
@@ -24,6 +25,13 @@ router.get(
   auth(UserRole.GUEST),
   validateRequest(ServiceValidation.categoryServicesSchema),
   getServicesByCategory
+);
+
+router.get(
+  "/individual/:serviceId",
+  validateRequest(ServiceValidation.serviceDetailsSchema),
+  auth(UserRole.GUEST),
+  getIndividualServiceDetails
 );
 
 router.post(

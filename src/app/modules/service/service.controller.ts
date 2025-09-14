@@ -180,13 +180,39 @@ export const getServicesByCategory = catchAsync(
     });
 
     sendResponse(res, {
-        statusCode: httpStatus.OK,
-        success: true,
-        message: "Services retrieved successfully",
-        meta: result.pagination,
-        data: {
-          services: result.services,
-        },
+      statusCode: httpStatus.OK,
+      success: true,
+      message: "Services retrieved successfully",
+      meta: result.pagination,
+      data: {
+        services: result.services,
+      },
+    });
+  }
+);
+
+export const getIndividualServiceDetails = catchAsync(
+  async (req: Request, res: Response) => {
+    const { serviceId } = req.params;
+
+    if (!serviceId) {
+      return sendResponse(res, {
+        statusCode: httpStatus.BAD_REQUEST,
+        success: false,
+        message: "Service ID is required",
+        data: null,
       });
+    }
+
+    const serviceDetails = await ServiceService.getIndividualServiceDetails(
+      serviceId
+    );
+
+    sendResponse(res, {
+      statusCode: httpStatus.OK,
+      success: true,
+      message: "Individual service details retrieved successfully",
+      data: serviceDetails,
+    });
   }
 );

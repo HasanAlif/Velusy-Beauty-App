@@ -1,22 +1,3 @@
-// Type guard to check if providerId is a populated user object
-function isPopulatedProvider(
-  provider: any
-): provider is {
-  firstName?: string;
-  lastName?: string;
-  userName?: string;
-  profilePicture?: string;
-  serviceCategory?: string;
-  city?: string;
-  streetAddress?: string;
-  schedule?: any;
-} {
-  return (
-    provider &&
-    typeof provider === "object" &&
-    ("firstName" in provider || "userName" in provider)
-  );
-}
 import mongoose from "mongoose";
 import { Service } from "./service.model";
 import ApiError from "../../../errors/ApiErrors";
@@ -370,10 +351,55 @@ const getServicesByCategory = async ({
   };
 };
 
+const getIndividualServiceDetails = async (serviceId: string) => {
+  try {
+    if (!Types.ObjectId.isValid(serviceId)) {
+      throw new ApiError(httpStatus.BAD_REQUEST, "Invalid service ID provided");
+    }
+
+    const service = await Service.findById(serviceId)
+      .populate(
+        "providerId",
+        "userName firstName lastName profession profilePicture city streetAddress schedule"
+      )
+      .lean();
+
+    if (!service) {
+      throw new ApiError(httpStatus.NOT_FOUND, "Service not found");
+    }
+
+    const provider = service.providerId as any;
+
+    return {
+      serviceImage: service.photo || null,
+      serviceName: service.name || null,
+      price: service.price || null,
+      serviceDescription: service.description || null,
+      providerCity: provider?.city || null,
+      providerStreetAddress: provider?.streetAddress || null,
+      providerName: provider?.userName || null,
+      providerImage: provider?.profilePicture || null,
+      providerProfession: provider?.profession || null,
+      providerSchedule: provider?.schedule || {},
+    };
+  } catch (error) {
+    console.error("Error fetching service details:", error);
+    if (error instanceof ApiError) {
+      throw error;
+    }
+    throw new ApiError(
+      httpStatus.INTERNAL_SERVER_ERROR,
+      "Error fetching service details: " +
+        (error instanceof Error ? error.message : "Unknown error")
+    );
+  }
+};
+
 export const ServiceService = {
   getAllCategories,
   createIntoDb,
   getListFromDb,
+  getIndividualServiceDetails,
   getByIdFromDb,
   serviceDetails,
   getServicesByCategory,
