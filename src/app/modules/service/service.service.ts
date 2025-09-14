@@ -395,6 +395,66 @@ const getIndividualServiceDetails = async (serviceId: string) => {
   }
 };
 
+const saveService = async (serviceId: string, userId: string) => {
+  const service = await Service.findById(serviceId);
+  if (!service) {
+    throw new ApiError(httpStatus.NOT_FOUND, "Service not found");
+  }
+
+  // Add service to user's saved services (prevents duplicates with $addToSet)
+  const updatedUser = await User.findByIdAndUpdate(
+    userId,
+    { $addToSet: { savedServices: serviceId } },
+    { new: true }
+  ).populate("savedServices", "name price photo description");
+
+  if (!updatedUser) {
+    throw new ApiError(httpStatus.NOT_FOUND, "User not found");
+  }
+
+  return {
+    saved: true,
+    totalSaved: updatedUser.savedServices?.length || 0,
+  };
+};
+
+const unsaveService = async (serviceId: string, userId: string) => {
+  // Remove service from user's saved services
+  const updatedUser = await User.findByIdAndUpdate(
+    userId,
+    { $pull: { savedServices: serviceId } },
+    { new: true }
+  ).populate("savedServices", "name price photo description");
+
+  if (!updatedUser) {
+    throw new ApiError(httpStatus.NOT_FOUND, "User not found");
+  }
+
+  return {
+    saved: false,
+    message: "Service removed from saved list",
+    totalSaved: updatedUser.savedServices?.length || 0,
+  };
+};
+
+const getSavedServices = async (userId: string) => {
+  const user = await User.findById(userId)
+    .populate(
+      "savedServices",
+      "name price photo description categoryId providerId"
+    )
+    .select("savedServices");
+
+  if (!user) {
+    throw new ApiError(httpStatus.NOT_FOUND, "User not found");
+  }
+
+  return {
+    savedServices: user.savedServices || [],
+    totalSaved: user.savedServices?.length || 0,
+  };
+};
+
 export const ServiceService = {
   getAllCategories,
   createIntoDb,
@@ -403,6 +463,9 @@ export const ServiceService = {
   getByIdFromDb,
   serviceDetails,
   getServicesByCategory,
+  saveService,
+  unsaveService,
+  getSavedServices,
   updateIntoDb,
   deleteFromDb,
 };

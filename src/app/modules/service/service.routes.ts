@@ -12,6 +12,9 @@ import {
   getCategories,
   getServicesByCategory,
   getIndividualServiceDetails,
+  saveService,
+  unsaveService,
+  getSavedServices,
 } from "./service.controller";
 import { fileUploader } from "../../../helpars/fileUploader";
 import { UserRole } from "../../models";
@@ -33,6 +36,13 @@ router.get(
   auth(UserRole.GUEST),
   getIndividualServiceDetails
 );
+
+// Save/Unsave service routes
+router.post("/save/:serviceId", auth(UserRole.GUEST), saveService);
+
+router.delete("/unsave/:serviceId", auth(UserRole.GUEST), unsaveService);
+
+router.get("/saved", auth(UserRole.GUEST), getSavedServices);
 
 router.post(
   "/add",

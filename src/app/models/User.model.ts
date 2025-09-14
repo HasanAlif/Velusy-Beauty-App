@@ -41,6 +41,7 @@ export interface IUser extends Document {
   language?: string;
   certificates?: IPortfolio[];
   companyCertificates?: IPortfolio[];
+  savedServices?: mongoose.Types.ObjectId[];
   password: string;
   role: UserRole;
   status: UserStatus;
@@ -57,14 +58,16 @@ const portfolioSchema = new Schema<IPortfolio>({
 });
 
 // Custom validator for profession field to check against category names
-const validateProfession = async function(professionValue: string): Promise<boolean> {
+const validateProfession = async function (
+  professionValue: string
+): Promise<boolean> {
   if (!professionValue) return true;
-  
+
   try {
     const category = await Category.findOne({ name: professionValue });
     return !!category;
   } catch (error) {
-    console.error('Error validating profession:', error);
+    console.error("Error validating profession:", error);
     return false;
   }
 };
@@ -92,8 +95,8 @@ const UserSchema = new Schema<IUser>(
       trim: true,
       validate: {
         validator: validateProfession,
-        message: 'Profession must be a valid category name created by admin'
-      }
+        message: "Profession must be a valid category name created by admin",
+      },
     },
     personalDescription: {
       type: String,
@@ -159,6 +162,10 @@ const UserSchema = new Schema<IUser>(
       type: [portfolioSchema],
       default: [],
     },
+    savedServices: {
+      type: [{ type: Schema.Types.ObjectId, ref: "Service" }],
+      default: [],
+    },
     password: {
       type: String,
       required: true,
@@ -207,10 +214,10 @@ export const User = mongoose.model<IUser>("User", UserSchema);
 // Helper function to get available professions (category names)
 export const getAvailableProfessions = async (): Promise<string[]> => {
   try {
-    const categories = await Category.find({}, 'name').lean();
-    return categories.map(category => category.name);
+    const categories = await Category.find({}, "name").lean();
+    return categories.map((category) => category.name);
   } catch (error) {
-    console.error('Error fetching available professions:', error);
+    console.error("Error fetching available professions:", error);
     return [];
   }
 };

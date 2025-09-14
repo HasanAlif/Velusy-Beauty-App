@@ -216,3 +216,64 @@ export const getIndividualServiceDetails = catchAsync(
     });
   }
 );
+
+export const saveService = catchAsync(
+  async (req: Request & { user?: any }, res: Response) => {
+    const { serviceId } = req.params;
+
+    if (!serviceId) {
+      return sendResponse(res, {
+        statusCode: httpStatus.BAD_REQUEST,
+        success: false,
+        message: "Service ID is required",
+        data: null,
+      });
+    }
+
+    const result = await ServiceService.saveService(serviceId, req.user.id);
+
+    sendResponse(res, {
+      statusCode: httpStatus.OK,
+      success: true,
+      message: "Service saved successfully",
+      data: result,
+    });
+  }
+);
+
+export const unsaveService = catchAsync(
+  async (req: Request & { user?: any }, res: Response) => {
+    const { serviceId } = req.params;
+
+    if (!serviceId) {
+      return sendResponse(res, {
+        statusCode: httpStatus.BAD_REQUEST,
+        success: false,
+        message: "Service ID is required",
+        data: null,
+      });
+    }
+
+    const result = await ServiceService.unsaveService(serviceId, req.user.id);
+
+    sendResponse(res, {
+      statusCode: httpStatus.OK,
+      success: true,
+      message: result.message,
+      data: result,
+    });
+  }
+);
+
+export const getSavedServices = catchAsync(
+  async (req: Request & { user?: any }, res: Response) => {
+    const result = await ServiceService.getSavedServices(req.user.id);
+
+    sendResponse(res, {
+      statusCode: httpStatus.OK,
+      success: true,
+      message: `Found ${result.totalSaved} saved service(s)`,
+      data: result,
+    });
+  }
+);
