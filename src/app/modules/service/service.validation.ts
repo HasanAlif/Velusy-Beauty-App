@@ -99,10 +99,75 @@ const categoryServicesSchema = z.object({
   }),
 });
 
+const filterSchema = z.object({
+  query: z
+    .object({
+      searchTerm: z.string().max(100).optional(),
+
+      // Location filters
+      location: z.string().max(100).optional(),
+      city: z.string().max(100).optional(),
+      streetAddress: z.string().max(200).optional(),
+
+      // Category filter
+      categoryId: z
+        .string()
+        .regex(/^[0-9a-fA-F]{24}$/, "Invalid category ID format")
+        .optional(),
+
+      // Service filters
+      serviceName: z.string().max(100).optional(),
+
+      // Price range filters
+      minPrice: z.coerce.number().min(0).optional(),
+      maxPrice: z.coerce.number().min(0).optional(),
+
+      // Professional level filter
+      professionalLevel: z
+        .enum(["BEGINNER", "RISING_STAR", "PRO", "PRO_MASTER"])
+        .optional(),
+
+      // Verified professionals filter
+      isVerified: z.coerce.boolean().optional(),
+
+      // Pagination
+      page: z.coerce.number().min(1).default(1).optional(),
+      limit: z.coerce.number().min(1).max(100).default(20).optional(),
+    })
+    .refine(
+      (data) => {
+        // If both minPrice and maxPrice are provided, minPrice should be <= maxPrice
+        if (data.minPrice !== undefined && data.maxPrice !== undefined) {
+          return data.minPrice <= data.maxPrice;
+        }
+        return true;
+      },
+      {
+        message: "minPrice must be less than or equal to maxPrice",
+      }
+    ),
+});
+
+const unifiedSearchSchema = z.object({
+  query: z.object({
+    // Search parameter for service names and professional names
+    search: z
+      .string()
+      .min(1, "Search term is required")
+      .max(100, "Search term must be between 1 and 100 characters"),
+
+    // Pagination
+    page: z.coerce.number().min(1).default(1).optional(),
+    limit: z.coerce.number().min(1).max(100).default(20).optional(),
+  }),
+});
+
 export const ServiceValidation = {
   createSchema,
   updateSchema,
   listQuery,
   serviceDetailsSchema,
   categoryServicesSchema,
+  filterSchema,
+  unifiedSearchSchema,
 };

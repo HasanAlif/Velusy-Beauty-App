@@ -277,3 +277,13 @@ export const getSavedServices = catchAsync(
     });
   }
 );
+
+export const filterServices = catchAsync(
+  async (req: Request, res: Response) => {
+    await ServiceService.filterServices(req, res);
+  }
+);
+
+export const unifiedSearch = catchAsync(async (req: Request, res: Response) => {
+  await ServiceService.unifiedSearch(req, res);
+});

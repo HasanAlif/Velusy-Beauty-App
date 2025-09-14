@@ -455,6 +455,389 @@ const getSavedServices = async (userId: string) => {
   };
 };
 
+const filterServices = async (req: any, res: any) => {
+  try {
+    const {
+      location,
+      city,
+      streetAddress,
+      categoryId,
+      serviceName,
+      searchTerm,
+      minPrice,
+      maxPrice,
+      professionalLevel,
+      isVerified,
+      page = 1,
+      limit = 20,
+    } = req.query;
+
+    console.log("Filter parameters received:", req.query);
+
+    const pageNum = Number(page);
+    const limitNum = Number(limit);
+    const skip = (pageNum - 1) * limitNum;
+
+    const serviceQuery: any = {};
+
+    // Category filter
+    if (categoryId && categoryId.trim() !== "") {
+      if (Types.ObjectId.isValid(categoryId)) {
+        serviceQuery.categoryId = new Types.ObjectId(categoryId);
+      }
+    }
+
+    // Service name filter or search term in service names
+    if (searchTerm && searchTerm.trim() !== "") {
+      serviceQuery.name = { $regex: searchTerm.trim(), $options: "i" };
+      console.log(`Searching services by term: "${searchTerm}"`);
+    } else if (serviceName && serviceName.trim() !== "") {
+      serviceQuery.name = { $regex: serviceName.trim(), $options: "i" };
+      console.log(`Filtering services by name: "${serviceName}"`);
+    }
+
+    // Price range filters
+    if (minPrice && minPrice.trim() !== "") {
+      serviceQuery.price = { ...serviceQuery.price, $gte: Number(minPrice) };
+    }
+    if (maxPrice && maxPrice.trim() !== "") {
+      serviceQuery.price = { ...serviceQuery.price, $lte: Number(maxPrice) };
+    }
+
+    // Build provider query for location and professional level filters
+    const providerQuery: any = { role: "PROFESSIONAL" };
+
+    // Add isVerified filter if provided
+    if (isVerified === true || isVerified === "true") {
+      providerQuery.isVerified = true;
+      console.log("Filtering for verified professionals only");
+    }
+
+    const providerSearchConditions: any[] = [];
+
+    // Add search term conditions for professionals
+    if (searchTerm && searchTerm.trim() !== "") {
+      const searchRegex = new RegExp(searchTerm.trim(), "i");
+      providerSearchConditions.push(
+        { userName: searchRegex },
+        { firstName: searchRegex },
+        { lastName: searchRegex },
+        { profession: searchRegex }
+      );
+    }
+
+    // Enhanced location filters - search by professional city or street address
+    if (location && location.trim() !== "") {
+      const locationRegex = new RegExp(location.trim(), "i");
+      providerSearchConditions.push(
+        { city: locationRegex },
+        { streetAddress: locationRegex }
+      );
+      console.log(`Searching for professionals in location: "${location}"`);
+    } else {
+      // Specific city filter
+      if (city && city.trim() !== "") {
+        providerQuery.city = { $regex: city.trim(), $options: "i" };
+        console.log(`Filtering by city: "${city}"`);
+      }
+      // Specific street address filter
+      if (streetAddress && streetAddress.trim() !== "") {
+        providerQuery.streetAddress = {
+          $regex: streetAddress.trim(),
+          $options: "i",
+        };
+        console.log(`Filtering by street address: "${streetAddress}"`);
+      }
+    }
+
+    if (providerSearchConditions.length > 0) {
+      if (Object.keys(providerQuery).length > 1) {
+        providerQuery.$and = [
+          { $or: providerSearchConditions },
+          ...Object.keys(providerQuery)
+            .filter((key) => key !== "role")
+            .map((key) => ({ [key]: providerQuery[key] })),
+        ];
+        Object.keys(providerQuery)
+          .filter((key) => !["role", "$and"].includes(key))
+          .forEach((key) => delete providerQuery[key]);
+      } else {
+        providerQuery.$or = providerSearchConditions;
+      }
+    }
+
+    // Professional level filter
+    if (professionalLevel && professionalLevel.trim() !== "") {
+      if (providerQuery.$and) {
+        providerQuery.$and.push({
+          professionalLevel: professionalLevel.trim(),
+        });
+      } else {
+        providerQuery.professionalLevel = professionalLevel.trim();
+      }
+      console.log(`Filtering by professional level: "${professionalLevel}"`);
+    }
+
+    console.log(
+      "Built provider query:",
+      JSON.stringify(providerQuery, null, 2)
+    );
+
+    // Find matching providers first if we have provider filters
+    let providerIds: Types.ObjectId[] | undefined;
+    if (Object.keys(providerQuery).length > 1) {
+      const matchingProviders = await User.find(providerQuery)
+        .select("_id")
+        .lean();
+      providerIds = matchingProviders.map((p) => new Types.ObjectId(p._id));
+
+      console.log(`Found ${providerIds.length} matching professionals`);
+
+      if (providerIds && providerIds.length === 0) {
+        return res.status(200).json({
+          success: true,
+          count: 0,
+          filters: req.query,
+          data: [],
+          pagination: {
+            total: 0,
+            page: pageNum,
+            limit: limitNum,
+            totalPages: 0,
+          },
+          message: location
+            ? `No professionals found in "${location}"`
+            : "No professionals match the specified criteria",
+        });
+      }
+
+      if (providerIds) {
+        serviceQuery.providerId = { $in: providerIds };
+      }
+    }
+
+    // Get total count for pagination
+    const total = await Service.countDocuments(serviceQuery);
+
+    // Execute the main query with population and pagination
+    const services = await Service.find(serviceQuery)
+      .populate({
+        path: "providerId",
+        select:
+          "userName firstName lastName profilePicture city streetAddress profession professionalLevel isVerified",
+        match: providerQuery, // This will filter populated providers
+      })
+      .populate({
+        path: "categoryId",
+        select: "name",
+      })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limitNum)
+      .lean();
+
+    // Filter out services where provider didn't match the criteria
+    const filteredServices = services.filter(
+      (service) => service.providerId !== null
+    );
+
+    console.log(`Found ${filteredServices.length} services matching filters`);
+
+    // Format the response
+    const formattedServices = filteredServices.map((service: any) => ({
+      serviceId: service._id?.toString(),
+      serviceName: service.name,
+      serviceImage: service.photo,
+      servicePrice: service.price,
+      serviceDescription: service.description,
+      categoryId: service.categoryId?._id?.toString(),
+      categoryName: service.categoryId?.name,
+      providerName:
+        `${service.providerId?.firstName || ""} ${
+          service.providerId?.lastName || ""
+        }`.trim() || service.providerId?.userName,
+      providerImage: service.providerId?.profilePicture,
+      providerCity: service.providerId?.city,
+      providerStreetAddress: service.providerId?.streetAddress,
+      providerProfession: service.providerId?.profession,
+      providerLevel: service.providerId?.professionalLevel,
+      providerIsVerified: service.providerId?.isVerified || false,
+      providerId: service.providerId?._id?.toString(),
+      createdAt: service.createdAt,
+    }));
+
+    const totalPages = Math.ceil(total / limitNum);
+
+    return res.status(200).json({
+      success: true,
+      count: formattedServices.length,
+      filters: req.query,
+      data: formattedServices,
+      pagination: {
+        total,
+        page: pageNum,
+        limit: limitNum,
+        totalPages,
+      },
+      message: location
+        ? `Found ${formattedServices.length} service(s) from professionals in "${location}"`
+        : `Found ${formattedServices.length} service(s) matching your criteria`,
+    });
+  } catch (error) {
+    console.error("Error filtering services:", error);
+    return res.status(500).json({
+      success: false,
+      message:
+        "Error filtering services: " +
+        (error instanceof Error ? error.message : "Unknown error"),
+    });
+  }
+};
+
+// Unified search - search service names and professional names
+const unifiedSearch = async (req: any, res: any) => {
+  try {
+    const { search, page = 1, limit = 20 } = req.query;
+
+    if (!search || search.trim() === "") {
+      return res.status(400).json({
+        success: false,
+        message: "Please provide a search term.",
+      });
+    }
+
+    console.log(`Unified search for: "${search}"`);
+
+    const pageNum = Number(page);
+    const limitNum = Number(limit);
+    const skip = (pageNum - 1) * limitNum;
+
+    const searchRegex = new RegExp(search.trim(), "i");
+
+    // Build provider query
+    const providerBaseQuery: any = { role: "PROFESSIONAL" };
+
+    // First, find services that match the search term
+    const serviceQuery: any = { name: searchRegex };
+
+    const serviceMatches = await Service.find(serviceQuery)
+      .populate({
+        path: "providerId",
+        select:
+          "userName firstName lastName profilePicture city streetAddress profession professionalLevel isVerified",
+      })
+      .populate({
+        path: "categoryId",
+        select: "name",
+      })
+      .lean();
+
+    const professionalQuery = {
+      ...providerBaseQuery,
+      $or: [
+        { userName: searchRegex },
+        { firstName: searchRegex },
+        { lastName: searchRegex },
+        { profession: searchRegex },
+      ],
+    };
+
+    const professionalMatches = await User.find(professionalQuery)
+      .select("_id")
+      .lean();
+
+    // Get services from matching professionals
+    let professionalServices: any[] = [];
+    if (professionalMatches.length > 0) {
+      professionalServices = await Service.find({
+        providerId: { $in: professionalMatches.map((p) => p._id) },
+      })
+        .populate({
+          path: "providerId",
+          select:
+            "userName firstName lastName profilePicture city streetAddress profession professionalLevel isVerified",
+        })
+        .populate({
+          path: "categoryId",
+          select: "name",
+        })
+        .lean();
+    }
+
+    // Combine and deduplicate results
+    const allServices = [...serviceMatches, ...professionalServices];
+    const uniqueServices = allServices.filter(
+      (service, index, self) =>
+        index ===
+        self.findIndex((s) => s._id.toString() === service._id.toString())
+    );
+
+    // Sort by creation date (newest first)
+    uniqueServices.sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+
+    // Apply pagination
+    const total = uniqueServices.length;
+    const paginatedServices = uniqueServices.slice(skip, skip + limitNum);
+
+    console.log(
+      `Found ${total} unique services matching search term "${search}"`
+    );
+
+    // Format the response
+    const formattedServices = paginatedServices.map((service: any) => ({
+      serviceId: service._id?.toString(),
+      serviceName: service.name,
+      serviceImage: service.photo,
+      servicePrice: service.price,
+      serviceDescription: service.description,
+      categoryId: service.categoryId?._id?.toString(),
+      categoryName: service.categoryId?.name,
+      providerName:
+        service.providerId?.userName ||
+        `${service.providerId?.firstName || ""} ${
+          service.providerId?.lastName || ""
+        }`.trim(),
+      providerImage: service.providerId?.profilePicture,
+      providerCity: service.providerId?.city,
+      providerStreetAddress: service.providerId?.streetAddress,
+      providerProfession: service.providerId?.profession,
+      providerLevel: service.providerId?.professionalLevel,
+      providerIsVerified: service.providerId?.isVerified || false,
+      providerId: service.providerId?._id?.toString(),
+      createdAt: service.createdAt,
+    }));
+
+    const totalPages = Math.ceil(total / limitNum);
+
+    const responseMessage = `Found ${total} service(s) matching "${search}" in service names and professional names`;
+
+    return res.status(200).json({
+      success: true,
+      count: formattedServices.length,
+      searchTerm: search,
+      data: formattedServices,
+      pagination: {
+        total,
+        page: pageNum,
+        limit: limitNum,
+        totalPages,
+      },
+      message: responseMessage,
+    });
+  } catch (error) {
+    console.error("Error in unified search:", error);
+    return res.status(500).json({
+      success: false,
+      message:
+        "Error performing search: " +
+        (error instanceof Error ? error.message : "Unknown error"),
+    });
+  }
+};
+
 export const ServiceService = {
   getAllCategories,
   createIntoDb,
@@ -468,4 +851,6 @@ export const ServiceService = {
   getSavedServices,
   updateIntoDb,
   deleteFromDb,
+  filterServices,
+  unifiedSearch,
 };

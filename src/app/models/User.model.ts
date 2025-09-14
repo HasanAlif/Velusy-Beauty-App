@@ -13,6 +13,13 @@ export enum UserStatus {
   BLOCKED = "BLOCKED",
 }
 
+export enum ProfessionalLevel {
+  BEGINNER = "BEGINNER",
+  RISING_STAR = "RISING_STAR",
+  PRO = "PRO",
+  PRO_MASTER = "PRO_MASTER",
+}
+
 export interface IPortfolio {
   fileUrl: string;
   fileType: string;
@@ -42,6 +49,8 @@ export interface IUser extends Document {
   certificates?: IPortfolio[];
   companyCertificates?: IPortfolio[];
   savedServices?: mongoose.Types.ObjectId[];
+  professionalLevel?: ProfessionalLevel;
+  isVerified?: boolean;
   password: string;
   role: UserRole;
   status: UserStatus;
@@ -166,6 +175,15 @@ const UserSchema = new Schema<IUser>(
       type: [{ type: Schema.Types.ObjectId, ref: "Service" }],
       default: [],
     },
+    professionalLevel: {
+      type: String,
+      enum: Object.values(ProfessionalLevel),
+      default: ProfessionalLevel.BEGINNER,
+    },
+    isVerified: {
+      type: Boolean,
+      default: false,
+    },
     password: {
       type: String,
       required: true,
@@ -201,6 +219,8 @@ UserSchema.index({ userName: 1 });
 UserSchema.index({ serviceType: 1 });
 UserSchema.index({ serviceCategory: 1 });
 UserSchema.index({ email: 1, userName: 1 });
+UserSchema.index({ isVerified: 1 });
+UserSchema.index({ role: 1, isVerified: 1 });
 
 export enum NotificationType {
   NORMAL = "NORMAL",

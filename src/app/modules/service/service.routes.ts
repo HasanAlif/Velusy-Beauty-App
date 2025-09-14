@@ -15,6 +15,8 @@ import {
   saveService,
   unsaveService,
   getSavedServices,
+  filterServices,
+  unifiedSearch,
 } from "./service.controller";
 import { fileUploader } from "../../../helpars/fileUploader";
 import { UserRole } from "../../models";
@@ -22,6 +24,20 @@ import { UserRole } from "../../models";
 const router = express.Router();
 
 router.get("/categories", auth(UserRole.GUEST), getCategories);
+
+router.get(
+  "/filter",
+  auth(UserRole.GUEST),
+  validateRequest(ServiceValidation.filterSchema),
+  filterServices
+);
+
+router.get(
+  "/search",
+  auth(UserRole.GUEST),
+  validateRequest(ServiceValidation.unifiedSearchSchema),
+  unifiedSearch
+);
 
 router.get(
   "/category/:categoryId",
