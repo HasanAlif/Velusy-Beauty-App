@@ -167,7 +167,7 @@ export const serviceDetails = catchAsync(async (req: Request, res) => {
 });
 
 export const getServicesByCategory = catchAsync(
-  async (req: Request, res: Response) => {
+  async (req: Request & { user?: any }, res: Response) => {
     const { categoryId } = req.params;
     const { search, page, limit } = req.query;
 
@@ -176,17 +176,17 @@ export const getServicesByCategory = catchAsync(
       search: search as string,
       page: page ? parseInt(page as string) : 1,
       limit: limit ? parseInt(limit as string) : 20,
+      userId: req.user.id,
     });
 
     sendResponse(res, {
-      statusCode: httpStatus.OK,
-      success: true,
-      message: "Services retrieved successfully",
-      meta: result.pagination,
-      data: {
-        category: result.category,
-        services: result.services,
-      },
-    });
+        statusCode: httpStatus.OK,
+        success: true,
+        message: "Services retrieved successfully",
+        meta: result.pagination,
+        data: {
+          services: result.services,
+        },
+      });
   }
 );

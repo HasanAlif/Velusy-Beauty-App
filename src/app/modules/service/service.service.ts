@@ -1,3 +1,22 @@
+// Type guard to check if providerId is a populated user object
+function isPopulatedProvider(
+  provider: any
+): provider is {
+  firstName?: string;
+  lastName?: string;
+  userName?: string;
+  profilePicture?: string;
+  serviceCategory?: string;
+  city?: string;
+  streetAddress?: string;
+  schedule?: any;
+} {
+  return (
+    provider &&
+    typeof provider === "object" &&
+    ("firstName" in provider || "userName" in provider)
+  );
+}
 import mongoose from "mongoose";
 import { Service } from "./service.model";
 import ApiError from "../../../errors/ApiErrors";
@@ -6,6 +25,7 @@ import { IService } from "./service.model";
 import { Types } from "mongoose";
 import { User } from "../../models";
 import { Category } from "../admin/category.model";
+import haversineDistance from "../../../utils/HeversineDistance";
 
 type ListArgs = {
   search?: string;
@@ -271,15 +291,27 @@ const getServicesByCategory = async ({
   search,
   page = 1,
   limit = 20,
+  userId,
 }: {
   categoryId: string;
   search?: string;
   page?: number;
   limit?: number;
+  userId: string;
 }) => {
   const categoryExists = await Category.findById(categoryId);
   if (!categoryExists) {
     throw new ApiError(httpStatus.NOT_FOUND, "Category not found");
+  }
+
+  // Get logged-in user's coordinates
+  const user = await User.findById(userId).lean();
+  if (
+    !user ||
+    typeof user.latitude !== "number" ||
+    typeof user.longitude !== "number"
+  ) {
+    throw new ApiError(httpStatus.BAD_REQUEST, "User location not found");
   }
 
   const filter: any = {
@@ -298,13 +330,37 @@ const getServicesByCategory = async ({
     .limit(limit)
     .populate(
       "providerId",
-      "userName profession profilePicture city streetAddress schedule"
+      "userName profession profilePicture city streetAddress schedule latitude longitude"
     )
     .lean();
 
+  const servicesResponse = services.map((service: any) => {
+    let distance = null;
+    if (
+      service.providerId &&
+      typeof service.providerId.latitude === "number" &&
+      typeof service.providerId.longitude === "number"
+    ) {
+      distance = haversineDistance(
+        user.latitude,
+        user.longitude,
+        service.providerId.latitude,
+        service.providerId.longitude
+      );
+    }
+    return {
+      serviceId: service._id?.toString() || null,
+      serviceImage: service.photo || null,
+      serviceName: service.name || null,
+      price: service.price || null,
+      providerName: service.providerId?.userName || null,
+      providerImage: service.providerId?.profilePicture || null,
+      distance,
+    };
+  });
+
   return {
-    category: categoryExists,
-    services,
+    services: servicesResponse,
     pagination: {
       total,
       page,
