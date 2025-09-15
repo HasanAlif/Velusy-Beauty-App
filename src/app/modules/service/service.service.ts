@@ -180,7 +180,6 @@ const deleteFromDb = async (
     try {
       const { fileUploader } = await import("../../../helpars/fileUploader");
       await fileUploader.deleteFromCloudinary(existing.photo);
-      console.log("Deleted service image from Cloudinary:", existing.photo);
     } catch (error) {
       console.error("Error deleting service image from Cloudinary:", error);
     }
@@ -322,12 +321,13 @@ const getServicesByCategory = async ({
       typeof service.providerId.latitude === "number" &&
       typeof service.providerId.longitude === "number"
     ) {
-      distance = haversineDistance(
+      const rawDistance = haversineDistance(
         user.latitude,
         user.longitude,
         service.providerId.latitude,
         service.providerId.longitude
       );
+      distance = Math.round(rawDistance * 100) / 100; // Round to 2 decimal places
     }
     return {
       serviceId: service._id?.toString() || null,
@@ -462,7 +462,9 @@ const filterServices = async (req: any, res: any) => {
       city,
       streetAddress,
       categoryId,
+      category,
       serviceName,
+      service,
       searchTerm,
       minPrice,
       maxPrice,
@@ -472,7 +474,56 @@ const filterServices = async (req: any, res: any) => {
       limit = 20,
     } = req.query;
 
-    console.log("Filter parameters received:", req.query);
+    const userId = req.user?.id;
+
+    // Save search history for the user with auto-cleanup
+    if (userId) {
+      try {
+        const searchData: any = {
+          searchType: "filter",
+          timestamp: new Date(),
+        };
+
+        if (searchTerm && searchTerm.trim()) {
+          searchData.searchTerm = searchTerm.trim();
+        }
+
+        if (location && location.trim()) searchData.location = location.trim();
+        if (city && city.trim()) searchData.city = city.trim();
+        if (streetAddress && streetAddress.trim())
+          searchData.streetAddress = streetAddress.trim();
+        if (categoryId && categoryId.trim())
+          searchData.categoryId = categoryId.trim();
+        if (category && category.trim()) searchData.category = category.trim();
+        if (serviceName && serviceName.trim())
+          searchData.serviceName = serviceName.trim();
+        if (service && service.trim()) searchData.service = service.trim();
+        if (minPrice && minPrice.toString().trim())
+          searchData.minPrice = Number(minPrice);
+        if (maxPrice && maxPrice.toString().trim())
+          searchData.maxPrice = Number(maxPrice);
+        if (professionalLevel && professionalLevel.trim())
+          searchData.professionalLevel = professionalLevel.trim();
+        if (isVerified === true || isVerified === "true")
+          searchData.isVerified = true;
+
+        // Add to search history and keep only last 10
+        await User.findByIdAndUpdate(
+          userId,
+          {
+            $push: {
+              searchHistory: {
+                $each: [searchData],
+                $slice: -10, // Keep only last 10 searches
+              },
+            },
+          },
+          { new: true }
+        );
+      } catch (error) {
+        console.error("Error saving search history:", error);
+      }
+    }
 
     const pageNum = Number(page);
     const limitNum = Number(limit);
@@ -480,20 +531,42 @@ const filterServices = async (req: any, res: any) => {
 
     const serviceQuery: any = {};
 
-    // Category filter
     if (categoryId && categoryId.trim() !== "") {
       if (Types.ObjectId.isValid(categoryId)) {
         serviceQuery.categoryId = new Types.ObjectId(categoryId);
       }
+    } else if (category && category.trim() !== "") {
+      const foundCategory = await Category.findOne({
+        name: { $regex: `^${category.trim()}$`, $options: "i" },
+      }).lean();
+
+      if (foundCategory) {
+        serviceQuery.categoryId = new Types.ObjectId(foundCategory._id);
+      } else {
+        return res.status(200).json({
+          success: true,
+          count: 0,
+          filters: req.query,
+          data: [],
+          pagination: {
+            total: 0,
+            page: pageNum,
+            limit: limitNum,
+            totalPages: 0,
+          },
+          message: `Category "${category}" not found`,
+        });
+      }
     }
 
-    // Service name filter or search term in service names
+    const serviceNameParam = service || serviceName;
     if (searchTerm && searchTerm.trim() !== "") {
       serviceQuery.name = { $regex: searchTerm.trim(), $options: "i" };
-      console.log(`Searching services by term: "${searchTerm}"`);
-    } else if (serviceName && serviceName.trim() !== "") {
-      serviceQuery.name = { $regex: serviceName.trim(), $options: "i" };
-      console.log(`Filtering services by name: "${serviceName}"`);
+    } else if (serviceNameParam && serviceNameParam.trim() !== "") {
+      serviceQuery.name = {
+        $regex: `^${serviceNameParam.trim()}$`,
+        $options: "i",
+      };
     }
 
     // Price range filters
@@ -510,7 +583,6 @@ const filterServices = async (req: any, res: any) => {
     // Add isVerified filter if provided
     if (isVerified === true || isVerified === "true") {
       providerQuery.isVerified = true;
-      console.log("Filtering for verified professionals only");
     }
 
     const providerSearchConditions: any[] = [];
@@ -533,12 +605,10 @@ const filterServices = async (req: any, res: any) => {
         { city: locationRegex },
         { streetAddress: locationRegex }
       );
-      console.log(`Searching for professionals in location: "${location}"`);
     } else {
       // Specific city filter
       if (city && city.trim() !== "") {
         providerQuery.city = { $regex: city.trim(), $options: "i" };
-        console.log(`Filtering by city: "${city}"`);
       }
       // Specific street address filter
       if (streetAddress && streetAddress.trim() !== "") {
@@ -546,7 +616,6 @@ const filterServices = async (req: any, res: any) => {
           $regex: streetAddress.trim(),
           $options: "i",
         };
-        console.log(`Filtering by street address: "${streetAddress}"`);
       }
     }
 
@@ -575,13 +644,7 @@ const filterServices = async (req: any, res: any) => {
       } else {
         providerQuery.professionalLevel = professionalLevel.trim();
       }
-      console.log(`Filtering by professional level: "${professionalLevel}"`);
     }
-
-    console.log(
-      "Built provider query:",
-      JSON.stringify(providerQuery, null, 2)
-    );
 
     // Find matching providers first if we have provider filters
     let providerIds: Types.ObjectId[] | undefined;
@@ -590,8 +653,6 @@ const filterServices = async (req: any, res: any) => {
         .select("_id")
         .lean();
       providerIds = matchingProviders.map((p) => new Types.ObjectId(p._id));
-
-      console.log(`Found ${providerIds.length} matching professionals`);
 
       if (providerIds && providerIds.length === 0) {
         return res.status(200).json({
@@ -640,8 +701,6 @@ const filterServices = async (req: any, res: any) => {
     const filteredServices = services.filter(
       (service) => service.providerId !== null
     );
-
-    console.log(`Found ${filteredServices.length} services matching filters`);
 
     // Format the response
     const formattedServices = filteredServices.map((service: any) => ({
@@ -698,6 +757,7 @@ const filterServices = async (req: any, res: any) => {
 const unifiedSearch = async (req: any, res: any) => {
   try {
     const { search, page = 1, limit = 20 } = req.query;
+    const userId = req.user?.id; // Get user ID from authenticated request
 
     if (!search || search.trim() === "") {
       return res.status(400).json({
@@ -706,7 +766,32 @@ const unifiedSearch = async (req: any, res: any) => {
       });
     }
 
-    console.log(`Unified search for: "${search}"`);
+    // Save search history for the user with auto-cleanup
+    if (userId) {
+      try {
+        const searchData = {
+          searchTerm: search.trim(),
+          searchType: "unified",
+          timestamp: new Date(),
+        };
+
+        // Add to search history and keep only last 10
+        await User.findByIdAndUpdate(
+          userId,
+          {
+            $push: {
+              searchHistory: {
+                $each: [searchData],
+                $slice: -10, // Keep only last 10 searches
+              },
+            },
+          },
+          { new: true }
+        );
+      } catch (error) {
+        console.error("Error saving search history:", error);
+      }
+    }
 
     const pageNum = Number(page);
     const limitNum = Number(limit);
@@ -782,10 +867,6 @@ const unifiedSearch = async (req: any, res: any) => {
     const total = uniqueServices.length;
     const paginatedServices = uniqueServices.slice(skip, skip + limitNum);
 
-    console.log(
-      `Found ${total} unique services matching search term "${search}"`
-    );
-
     // Format the response
     const formattedServices = paginatedServices.map((service: any) => ({
       serviceId: service._id?.toString(),
@@ -838,6 +919,237 @@ const unifiedSearch = async (req: any, res: any) => {
   }
 };
 
+const suggestedServices = async (userId: string) => {
+  try {
+    // Get user information and search history
+    const user = await User.findById(userId).lean();
+    if (!user) {
+      throw new ApiError(httpStatus.NOT_FOUND, "User not found");
+    }
+
+    // Get user location for distance calculation
+    const userLocation =
+      typeof user.latitude === "number" && typeof user.longitude === "number"
+        ? { latitude: user.latitude, longitude: user.longitude }
+        : null;
+
+    // Check if user has search history
+    if (!user.searchHistory || user.searchHistory.length === 0) {
+      const randomServices = await Service.find()
+        .populate({
+          path: "providerId",
+          select:
+            "userName firstName lastName profilePicture city streetAddress profession isVerified latitude longitude",
+          match: { role: "PROFESSIONAL" },
+        })
+        .populate({
+          path: "categoryId",
+          select: "name",
+        })
+        .limit(10)
+        .lean()
+        .sort({ createdAt: -1 });
+
+      const validServices = randomServices.filter(
+        (service) => service.providerId !== null
+      );
+
+      const formattedSuggestions = validServices.map((service: any) => {
+        const baseResponse = {
+          serviceId: service._id?.toString(),
+          serviceName: service.name,
+          serviceImage: service.photo,
+          servicePrice: service.price,
+          serviceDescription: service.description,
+          categoryId: service.categoryId?._id?.toString(),
+          categoryName: service.categoryId?.name,
+          providerName:
+            service.providerId?.userName ||
+            `${service.providerId?.firstName || ""} ${
+              service.providerId?.lastName || ""
+            }`.trim(),
+          providerImage: service.providerId?.profilePicture,
+          providerCity: service.providerId?.city,
+          providerStreetAddress: service.providerId?.streetAddress,
+          providerProfession: service.providerId?.profession,
+          providerIsVerified: service.providerId?.isVerified || false,
+          providerId: service.providerId?._id?.toString(),
+        };
+
+        // Calculate distance if both user and provider have coordinates
+        let distance = null;
+        if (
+          userLocation &&
+          service.providerId &&
+          typeof service.providerId.latitude === "number" &&
+          typeof service.providerId.longitude === "number"
+        ) {
+          const rawDistance = haversineDistance(
+            userLocation.latitude,
+            userLocation.longitude,
+            service.providerId.latitude,
+            service.providerId.longitude
+          );
+          distance = Math.round(rawDistance * 100) / 100; // Round to 2 decimal places
+        }
+
+        return {
+          ...baseResponse,
+          distance,
+        };
+      });
+
+      return {
+        suggestions: formattedSuggestions,
+        basedOn: "popular services",
+        message: `Found ${formattedSuggestions.length} popular services for you`,
+      };
+    }
+
+    // Use search history to get suggestions
+    const recentSearches = user.searchHistory.slice(-5).reverse(); // Get last 5 searches, newest first
+    let serviceIds: Set<string> = new Set();
+
+    // Collect service IDs from search history
+    for (const search of recentSearches) {
+      const searchData = search as any;
+
+      if (searchData.foundServices && Array.isArray(searchData.foundServices)) {
+        searchData.foundServices.forEach((serviceId: string) => {
+          serviceIds.add(serviceId);
+        });
+      }
+    }
+
+    // Convert Set to Array - prioritize services from search history
+    const serviceIdArray = Array.from(serviceIds);
+
+    // Get services from search history first
+    let historyServices: any[] = [];
+    if (serviceIdArray.length > 0) {
+      historyServices = await Service.find({
+        _id: {
+          $in: serviceIdArray.map((id) => new mongoose.Types.ObjectId(id)),
+        },
+      })
+        .populate({
+          path: "providerId",
+          select:
+            "userName firstName lastName profilePicture city streetAddress profession isVerified latitude longitude",
+          match: { role: "PROFESSIONAL" },
+        })
+        .populate({
+          path: "categoryId",
+          select: "name",
+        })
+        .lean()
+        .sort({ createdAt: -1 });
+
+      // Filter out services without valid providers
+      historyServices = historyServices.filter(
+        (service) => service.providerId !== null
+      );
+    }
+
+    // If we need more services to reach 10, get additional random ones
+    let additionalServices: any[] = [];
+    if (historyServices.length < 10) {
+      const usedIds = historyServices.map((s) => s._id.toString());
+      additionalServices = await Service.find({
+        _id: { $nin: usedIds.map((id) => new mongoose.Types.ObjectId(id)) },
+      })
+        .populate({
+          path: "providerId",
+          select:
+            "userName firstName lastName profilePicture city streetAddress profession isVerified latitude longitude",
+          match: { role: "PROFESSIONAL" },
+        })
+        .populate({
+          path: "categoryId",
+          select: "name",
+        })
+        .limit(10 - historyServices.length)
+        .lean()
+        .sort({ createdAt: -1 });
+
+      additionalServices = additionalServices.filter(
+        (service) => service.providerId !== null
+      );
+    }
+
+    // Combine history services and additional services
+    const allServices = [...historyServices, ...additionalServices].slice(
+      0,
+      10
+    );
+
+    // Format services with distance calculation
+    const formattedSuggestions = allServices.map((service: any) => {
+      const baseResponse = {
+        serviceId: service._id?.toString(),
+        serviceName: service.name,
+        serviceImage: service.photo,
+        servicePrice: service.price,
+        serviceDescription: service.description,
+        categoryId: service.categoryId?._id?.toString(),
+        categoryName: service.categoryId?.name,
+        providerName:
+          service.providerId?.userName ||
+          `${service.providerId?.firstName || ""} ${
+            service.providerId?.lastName || ""
+          }`.trim(),
+        providerImage: service.providerId?.profilePicture,
+        providerCity: service.providerId?.city,
+        providerStreetAddress: service.providerId?.streetAddress,
+        providerProfession: service.providerId?.profession,
+        providerIsVerified: service.providerId?.isVerified || false,
+        providerId: service.providerId?._id?.toString(),
+      };
+
+      // Calculate distance if both user and provider have coordinates
+      let distance = null;
+      if (
+        userLocation &&
+        service.providerId &&
+        typeof service.providerId.latitude === "number" &&
+        typeof service.providerId.longitude === "number"
+      ) {
+        const rawDistance = haversineDistance(
+          userLocation.latitude,
+          userLocation.longitude,
+          service.providerId.latitude,
+          service.providerId.longitude
+        );
+        distance = Math.round(rawDistance * 100) / 100; // Round to 2 decimal places
+      }
+      return {
+        ...baseResponse,
+        distance,
+      };
+    });
+
+    const historyBasedCount = historyServices.length;
+    const totalSuggestions = formattedSuggestions.length;
+
+    return {
+      suggestions: formattedSuggestions,
+      basedOn:
+        historyBasedCount > 0 ? "your search history" : "popular services",
+      message:
+        historyBasedCount > 0
+          ? `Found ${totalSuggestions} suggestions (${historyBasedCount} from your search history)`
+          : `Found ${totalSuggestions} suggested services for you`,
+      total: totalSuggestions,
+    };
+  } catch (error) {
+    console.error("Error getting suggested services:", error);
+    throw new ApiError(
+      httpStatus.INTERNAL_SERVER_ERROR,
+      "Error getting suggestions"
+    );
+  }
+};
+
 export const ServiceService = {
   getAllCategories,
   createIntoDb,
@@ -853,4 +1165,5 @@ export const ServiceService = {
   deleteFromDb,
   filterServices,
   unifiedSearch,
+  suggestedServices,
 };

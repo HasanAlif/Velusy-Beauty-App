@@ -17,6 +17,7 @@ import {
   getSavedServices,
   filterServices,
   unifiedSearch,
+  getSuggestedServices,
 } from "./service.controller";
 import { fileUploader } from "../../../helpars/fileUploader";
 import { UserRole } from "../../models";
@@ -37,6 +38,12 @@ router.get(
   auth(UserRole.GUEST),
   validateRequest(ServiceValidation.unifiedSearchSchema),
   unifiedSearch
+);
+
+router.get(
+  "/suggestions",
+  auth(UserRole.GUEST),
+  getSuggestedServices
 );
 
 router.get(

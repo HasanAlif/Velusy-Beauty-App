@@ -95,7 +95,6 @@ export const updateService = catchAsync(
 
       // Delete old image from Cloudinary if it exists
       if (currentService?.photo) {
-        console.log("Deleting old service photo:", currentService.photo);
         await (
           await import("../../../helpars/fileUploader")
         ).fileUploader.deleteFromCloudinary(currentService.photo);
@@ -107,7 +106,6 @@ export const updateService = catchAsync(
           await import("../../../helpars/fileUploader")
         ).fileUploader.uploadToCloudinary(req.file, "service-images")
       ).Location;
-      console.log("New service photo URL:", photoUrl);
     }
 
     const payload: any = { ...req.body };
@@ -287,3 +285,20 @@ export const filterServices = catchAsync(
 export const unifiedSearch = catchAsync(async (req: Request, res: Response) => {
   await ServiceService.unifiedSearch(req, res);
 });
+
+export const getSuggestedServices = catchAsync(
+  async (req: Request & { user?: any }, res: Response) => {
+    const result = await ServiceService.suggestedServices(req.user.id);
+
+    sendResponse(res, {
+      statusCode: httpStatus.OK,
+      success: true,
+      message: result.message,
+      data: {
+        suggestions: result.suggestions,
+        basedOn: result.basedOn,
+        total: result.suggestions.length,
+      },
+    });
+  }
+);

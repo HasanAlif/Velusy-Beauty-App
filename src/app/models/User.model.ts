@@ -25,6 +25,25 @@ export interface IPortfolio {
   fileType: string;
 }
 
+export interface ISearchHistory {
+  searchTerm?: string;
+  filters?: {
+    location?: string;
+    city?: string;
+    streetAddress?: string;
+    categoryId?: string;
+    category?: string;
+    serviceName?: string;
+    service?: string;
+    minPrice?: number;
+    maxPrice?: number;
+    professionalLevel?: string;
+    isVerified?: boolean;
+  };
+  searchType: 'unified' | 'filter';
+  timestamp: Date;
+}
+
 export interface IUser extends Document {
   _id: string;
   firstName?: string;
@@ -49,6 +68,7 @@ export interface IUser extends Document {
   certificates?: IPortfolio[];
   companyCertificates?: IPortfolio[];
   savedServices?: mongoose.Types.ObjectId[];
+  searchHistory?: ISearchHistory[];
   professionalLevel?: ProfessionalLevel;
   isVerified?: boolean;
   password: string;
@@ -173,6 +193,25 @@ const UserSchema = new Schema<IUser>(
     },
     savedServices: {
       type: [{ type: Schema.Types.ObjectId, ref: "Service" }],
+      default: [],
+    },
+    searchHistory: {
+      type: [{
+        searchTerm: { type: String },
+        filters: {
+          location: { type: String },
+          city: { type: String },
+          streetAddress: { type: String },
+          categoryId: { type: String },
+          serviceName: { type: String },
+          minPrice: { type: Number },
+          maxPrice: { type: Number },
+          professionalLevel: { type: String },
+          isVerified: { type: Boolean }
+        },
+        searchType: { type: String, enum: ['unified', 'filter'], required: true },
+        timestamp: { type: Date, default: Date.now }
+      }],
       default: [],
     },
     professionalLevel: {
