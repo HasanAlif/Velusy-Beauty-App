@@ -11,7 +11,7 @@ import {
   serviceDetails,
   getCategories,
   getServicesByCategory,
-  getIndividualServiceDetails,
+  //getIndividualServiceDetails,
   saveService,
   unsaveService,
   getSavedServices,
@@ -62,12 +62,12 @@ router.get(
   getServicesByCategory
 );
 
-router.get(
-  "/individual/:serviceId",
-  validateRequest(ServiceValidation.serviceDetailsSchema),
-  auth(UserRole.GUEST),
-  getIndividualServiceDetails
-);
+// router.get(
+//   "/individual/:serviceId",
+//   validateRequest(ServiceValidation.serviceDetailsSchema),
+//   auth(UserRole.GUEST),
+//   getIndividualServiceDetails
+// );
 
 // Save/Unsave service routes
 router.post("/save/:serviceId", auth(UserRole.GUEST), saveService);

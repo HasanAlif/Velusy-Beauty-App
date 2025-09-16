@@ -37,16 +37,31 @@ const getAllCategories = async (options: {
     .sort({ createdAt: -1 })
     .skip((page - 1) * limit)
     .limit(limit)
+    .select('-__v -createdAt -updatedAt')
     .lean();
 
+  // Get service count for each category
+  const categoriesWithServiceCount = await Promise.all(
+    categories.map(async (category) => {
+      const serviceCount = await Service.countDocuments({
+        categoryId: category._id,
+      });
+
+      return {
+        ...category,
+        serviceCount,
+      };
+    })
+  );
+
   return {
-    categories,
-    pagination: {
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
-    },
+    categories: categoriesWithServiceCount,
+    // pagination: {
+    //   total,
+    //   page,
+    //   limit,
+    //   totalPages: Math.ceil(total / limit),
+    // },
   };
 };
 
@@ -351,49 +366,49 @@ const getServicesByCategory = async ({
   };
 };
 
-const getIndividualServiceDetails = async (serviceId: string) => {
-  try {
-    if (!Types.ObjectId.isValid(serviceId)) {
-      throw new ApiError(httpStatus.BAD_REQUEST, "Invalid service ID provided");
-    }
+// const getIndividualServiceDetails = async (serviceId: string) => {
+//   try {
+//     if (!Types.ObjectId.isValid(serviceId)) {
+//       throw new ApiError(httpStatus.BAD_REQUEST, "Invalid service ID provided");
+//     }
 
-    const service = await Service.findById(serviceId)
-      .populate(
-        "providerId",
-        "userName firstName lastName profession profilePicture city streetAddress schedule"
-      )
-      .lean();
+//     const service = await Service.findById(serviceId)
+//       .populate(
+//         "providerId",
+//         "userName firstName lastName profession profilePicture city streetAddress schedule"
+//       )
+//       .lean();
 
-    if (!service) {
-      throw new ApiError(httpStatus.NOT_FOUND, "Service not found");
-    }
+//     if (!service) {
+//       throw new ApiError(httpStatus.NOT_FOUND, "Service not found");
+//     }
 
-    const provider = service.providerId as any;
+//     const provider = service.providerId as any;
 
-    return {
-      serviceImage: service.photo || null,
-      serviceName: service.name || null,
-      price: service.price || null,
-      serviceDescription: service.description || null,
-      providerCity: provider?.city || null,
-      providerStreetAddress: provider?.streetAddress || null,
-      providerName: provider?.userName || null,
-      providerImage: provider?.profilePicture || null,
-      providerProfession: provider?.profession || null,
-      providerSchedule: provider?.schedule || {},
-    };
-  } catch (error) {
-    console.error("Error fetching service details:", error);
-    if (error instanceof ApiError) {
-      throw error;
-    }
-    throw new ApiError(
-      httpStatus.INTERNAL_SERVER_ERROR,
-      "Error fetching service details: " +
-        (error instanceof Error ? error.message : "Unknown error")
-    );
-  }
-};
+//     return {
+//       serviceImage: service.photo || null,
+//       serviceName: service.name || null,
+//       price: service.price || null,
+//       serviceDescription: service.description || null,
+//       providerCity: provider?.city || null,
+//       providerStreetAddress: provider?.streetAddress || null,
+//       providerName: provider?.userName || null,
+//       providerImage: provider?.profilePicture || null,
+//       providerProfession: provider?.profession || null,
+//       providerSchedule: provider?.schedule || {},
+//     };
+//   } catch (error) {
+//     console.error("Error fetching service details:", error);
+//     if (error instanceof ApiError) {
+//       throw error;
+//     }
+//     throw new ApiError(
+//       httpStatus.INTERNAL_SERVER_ERROR,
+//       "Error fetching service details: " +
+//         (error instanceof Error ? error.message : "Unknown error")
+//     );
+//   }
+// };
 
 const saveService = async (serviceId: string, userId: string) => {
   const service = await Service.findById(serviceId);
@@ -659,21 +674,18 @@ const filterServices = async (req: any, res: any) => {
       serviceName: service.name,
       serviceImage: service.photo,
       servicePrice: service.price,
-      serviceDescription: service.description,
-      categoryId: service.categoryId?._id?.toString(),
-      categoryName: service.categoryId?.name,
-      providerName:
-        `${service.providerId?.firstName || ""} ${
-          service.providerId?.lastName || ""
-        }`.trim() || service.providerId?.userName,
-      providerImage: service.providerId?.profilePicture,
-      providerCity: service.providerId?.city,
-      providerStreetAddress: service.providerId?.streetAddress,
-      providerProfession: service.providerId?.profession,
-      providerLevel: service.providerId?.professionalLevel,
-      providerIsVerified: service.providerId?.isVerified || false,
+      //serviceDescription: service.description,
+      //categoryId: service.categoryId?._id?.toString(),
+      //categoryName: service.categoryId?.name,
       providerId: service.providerId?._id?.toString(),
-      createdAt: service.createdAt,
+      providerName: service.providerId?.userName,
+      providerImage: service.providerId?.profilePicture,
+      //providerCity: service.providerId?.city,
+      //providerStreetAddress: service.providerId?.streetAddress,
+      //providerProfession: service.providerId?.profession,
+      //providerLevel: service.providerId?.professionalLevel,
+      //providerIsVerified: service.providerId?.isVerified || false,
+      //createdAt: service.createdAt,
     }));
 
     const totalPages = Math.ceil(total / limitNum);
@@ -853,22 +865,18 @@ const unifiedSearch = async (req: any, res: any) => {
       serviceName: service.name,
       serviceImage: service.photo,
       servicePrice: service.price,
-      serviceDescription: service.description,
-      categoryId: service.categoryId?._id?.toString(),
-      categoryName: service.categoryId?.name,
-      providerName:
-        service.providerId?.userName ||
-        `${service.providerId?.firstName || ""} ${
-          service.providerId?.lastName || ""
-        }`.trim(),
-      providerImage: service.providerId?.profilePicture,
-      providerCity: service.providerId?.city,
-      providerStreetAddress: service.providerId?.streetAddress,
-      providerProfession: service.providerId?.profession,
-      providerLevel: service.providerId?.professionalLevel,
-      providerIsVerified: service.providerId?.isVerified || false,
+      //serviceDescription: service.description,
+      //categoryId: service.categoryId?._id?.toString(),
+      //categoryName: service.categoryId?.name,
       providerId: service.providerId?._id?.toString(),
-      createdAt: service.createdAt,
+      providerName: service.providerId?.userName,
+      providerImage: service.providerId?.profilePicture,
+      //providerCity: service.providerId?.city,
+      //providerStreetAddress: service.providerId?.streetAddress,
+      //providerProfession: service.providerId?.profession,
+      //providerLevel: service.providerId?.professionalLevel,
+      //providerIsVerified: service.providerId?.isVerified || false,
+      //createdAt: service.createdAt,
     }));
 
     const totalPages = Math.ceil(total / limitNum);
@@ -1381,7 +1389,7 @@ export const ServiceService = {
   getAllCategories,
   createIntoDb,
   getListFromDb,
-  getIndividualServiceDetails,
+  //getIndividualServiceDetails,
   getByIdFromDb,
   serviceDetails,
   getServicesByCategory,

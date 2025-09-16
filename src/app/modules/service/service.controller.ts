@@ -12,7 +12,7 @@ export const getCategories = catchAsync(async (req: Request, res: Response) => {
     statusCode: 200,
     success: true,
     message: "Categories retrieved successfully",
-    meta: result.pagination,
+    //meta: result.pagination,
     data: result.categories,
   });
 });
@@ -189,31 +189,31 @@ export const getServicesByCategory = catchAsync(
   }
 );
 
-export const getIndividualServiceDetails = catchAsync(
-  async (req: Request, res: Response) => {
-    const { serviceId } = req.params;
+// export const getIndividualServiceDetails = catchAsync(
+//   async (req: Request, res: Response) => {
+//     const { serviceId } = req.params;
 
-    if (!serviceId) {
-      return sendResponse(res, {
-        statusCode: httpStatus.BAD_REQUEST,
-        success: false,
-        message: "Service ID is required",
-        data: null,
-      });
-    }
+//     if (!serviceId) {
+//       return sendResponse(res, {
+//         statusCode: httpStatus.BAD_REQUEST,
+//         success: false,
+//         message: "Service ID is required",
+//         data: null,
+//       });
+//     }
 
-    const serviceDetails = await ServiceService.getIndividualServiceDetails(
-      serviceId
-    );
+//     const serviceDetails = await ServiceService.getIndividualServiceDetails(
+//       serviceId
+//     );
 
-    sendResponse(res, {
-      statusCode: httpStatus.OK,
-      success: true,
-      message: "Individual service details retrieved successfully",
-      data: serviceDetails,
-    });
-  }
-);
+//     sendResponse(res, {
+//       statusCode: httpStatus.OK,
+//       success: true,
+//       message: "Individual service details retrieved successfully",
+//       data: serviceDetails,
+//     });
+//   }
+// );
 
 export const saveService = catchAsync(
   async (req: Request & { user?: any }, res: Response) => {
@@ -351,4 +351,4 @@ export const clearSingleSearchHistory = catchAsync(
       data: result,
     });
   }
-);
+); 
