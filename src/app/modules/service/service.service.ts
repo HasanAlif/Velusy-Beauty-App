@@ -476,55 +476,6 @@ const filterServices = async (req: any, res: any) => {
 
     const userId = req.user?.id;
 
-    // Save search history for the user with auto-cleanup
-    if (userId) {
-      try {
-        const searchData: any = {
-          searchType: "filter",
-          timestamp: new Date(),
-        };
-
-        if (searchTerm && searchTerm.trim()) {
-          searchData.searchTerm = searchTerm.trim();
-        }
-
-        if (location && location.trim()) searchData.location = location.trim();
-        if (city && city.trim()) searchData.city = city.trim();
-        if (streetAddress && streetAddress.trim())
-          searchData.streetAddress = streetAddress.trim();
-        if (categoryId && categoryId.trim())
-          searchData.categoryId = categoryId.trim();
-        if (category && category.trim()) searchData.category = category.trim();
-        if (serviceName && serviceName.trim())
-          searchData.serviceName = serviceName.trim();
-        if (service && service.trim()) searchData.service = service.trim();
-        if (minPrice && minPrice.toString().trim())
-          searchData.minPrice = Number(minPrice);
-        if (maxPrice && maxPrice.toString().trim())
-          searchData.maxPrice = Number(maxPrice);
-        if (professionalLevel && professionalLevel.trim())
-          searchData.professionalLevel = professionalLevel.trim();
-        if (isVerified === true || isVerified === "true")
-          searchData.isVerified = true;
-
-        // Add to search history and keep only last 10
-        await User.findByIdAndUpdate(
-          userId,
-          {
-            $push: {
-              searchHistory: {
-                $each: [searchData],
-                $slice: -10, // Keep only last 10 searches
-              },
-            },
-          },
-          { new: true }
-        );
-      } catch (error) {
-        console.error("Error saving search history:", error);
-      }
-    }
-
     const pageNum = Number(page);
     const limitNum = Number(limit);
     const skip = (pageNum - 1) * limitNum;
@@ -727,6 +678,62 @@ const filterServices = async (req: any, res: any) => {
 
     const totalPages = Math.ceil(total / limitNum);
 
+    // Save search results in user's search history
+    if (userId) {
+      try {
+        const foundServices = formattedServices
+          .map((service) => service.serviceId)
+          .filter(Boolean);
+        const foundProfessionals = [
+          ...new Set(
+            formattedServices
+              .map((service) => service.providerId)
+              .filter(Boolean)
+          ),
+        ];
+        const searchData: any = {
+          searchType: "filter",
+          resultServices: foundServices,
+          resultProfessionals: foundProfessionals,
+          timestamp: new Date(),
+        };
+
+        // Add search parameters for context
+        if (searchTerm && searchTerm.trim()) {
+          searchData.searchTerm = searchTerm.trim();
+        }
+        if (location && location.trim()) searchData.location = location.trim();
+        if (city && city.trim()) searchData.city = city.trim();
+        if (categoryId && categoryId.trim())
+          searchData.categoryId = categoryId.trim();
+        if (category && category.trim()) searchData.category = category.trim();
+        if (serviceName && serviceName.trim())
+          searchData.serviceName = serviceName.trim();
+        if (service && service.trim()) searchData.service = service.trim();
+        if (minPrice) searchData.minPrice = Number(minPrice);
+        if (maxPrice) searchData.maxPrice = Number(maxPrice);
+        if (professionalLevel && professionalLevel.trim())
+          searchData.professionalLevel = professionalLevel.trim();
+        if (isVerified === true || isVerified === "true")
+          searchData.isVerified = true;
+
+        const updatedUser = await User.findByIdAndUpdate(
+          userId,
+          {
+            $push: {
+              searchHistory: {
+                $each: [searchData],
+                $slice: -10, // Keep only last 10 searches
+              },
+            },
+          },
+          { new: true }
+        );
+      } catch (error) {
+        console.error("Error saving search results:", error);
+      }
+    }
+
     return res.status(200).json({
       success: true,
       count: formattedServices.length,
@@ -895,6 +902,50 @@ const unifiedSearch = async (req: any, res: any) => {
 
     const responseMessage = `Found ${total} service(s) matching "${search}" in service names and professional names`;
 
+    // Save search results in user's search history
+    if (userId) {
+      try {
+        const foundServices = formattedServices
+          .map((service) => service.serviceId)
+          .filter(Boolean);
+        const foundProfessionals = [
+          ...new Set(
+            formattedServices
+              .map((service) => service.providerId)
+              .filter(Boolean)
+          ),
+        ];
+
+        const searchData = {
+          searchType: "unifiedSearch",
+          searchTerm: search,
+          resultServices: foundServices,
+          resultProfessionals: foundProfessionals,
+          timestamp: new Date(),
+        };
+
+        console.log(
+          "Unified Search - searchData before save:",
+          JSON.stringify(searchData, null, 2)
+        );
+
+        const updatedUser = await User.findByIdAndUpdate(
+          userId,
+          {
+            $push: {
+              searchHistory: {
+                $each: [searchData],
+                $slice: -10, // Keep only last 10 searches
+              },
+            },
+          },
+          { new: true }
+        );
+      } catch (error) {
+        console.error("Error saving search results:", error);
+      }
+    }
+
     return res.status(200).json({
       success: true,
       count: formattedServices.length,
@@ -1014,8 +1065,11 @@ const suggestedServices = async (userId: string) => {
     for (const search of recentSearches) {
       const searchData = search as any;
 
-      if (searchData.foundServices && Array.isArray(searchData.foundServices)) {
-        searchData.foundServices.forEach((serviceId: string) => {
+      if (
+        searchData.resultServices &&
+        Array.isArray(searchData.resultServices)
+      ) {
+        searchData.resultServices.forEach((serviceId: string) => {
           serviceIds.add(serviceId);
         });
       }

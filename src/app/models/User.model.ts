@@ -40,7 +40,9 @@ export interface ISearchHistory {
     professionalLevel?: string;
     isVerified?: boolean;
   };
-  searchType: 'unified' | 'filter';
+  resultServices?: string[];
+  resultProfessionals?: string[];
+  searchType: "unified" | "filter" | "unifiedSearch";
   timestamp: Date;
 }
 
@@ -196,22 +198,32 @@ const UserSchema = new Schema<IUser>(
       default: [],
     },
     searchHistory: {
-      type: [{
-        searchTerm: { type: String },
-        filters: {
-          location: { type: String },
-          city: { type: String },
-          streetAddress: { type: String },
-          categoryId: { type: String },
-          serviceName: { type: String },
-          minPrice: { type: Number },
-          maxPrice: { type: Number },
-          professionalLevel: { type: String },
-          isVerified: { type: Boolean }
+      type: [
+        {
+          searchTerm: { type: String },
+          filters: {
+            location: { type: String },
+            city: { type: String },
+            streetAddress: { type: String },
+            categoryId: { type: String },
+            category: { type: String },
+            serviceName: { type: String },
+            service: { type: String },
+            minPrice: { type: Number },
+            maxPrice: { type: Number },
+            professionalLevel: { type: String },
+            isVerified: { type: Boolean },
+          },
+          resultServices: [{ type: String }],
+          resultProfessionals: [{ type: String }],
+          searchType: {
+            type: String,
+            enum: ["unified", "filter", "unifiedSearch"],
+            required: true,
+          },
+          timestamp: { type: Date, default: Date.now },
         },
-        searchType: { type: String, enum: ['unified', 'filter'], required: true },
-        timestamp: { type: Date, default: Date.now }
-      }],
+      ],
       default: [],
     },
     professionalLevel: {
