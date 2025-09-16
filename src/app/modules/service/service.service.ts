@@ -773,33 +773,6 @@ const unifiedSearch = async (req: any, res: any) => {
       });
     }
 
-    // Save search history for the user with auto-cleanup
-    if (userId) {
-      try {
-        const searchData = {
-          searchTerm: search.trim(),
-          searchType: "unified",
-          timestamp: new Date(),
-        };
-
-        // Add to search history and keep only last 10
-        await User.findByIdAndUpdate(
-          userId,
-          {
-            $push: {
-              searchHistory: {
-                $each: [searchData],
-                $slice: -10, // Keep only last 10 searches
-              },
-            },
-          },
-          { new: true }
-        );
-      } catch (error) {
-        console.error("Error saving search history:", error);
-      }
-    }
-
     const pageNum = Number(page);
     const limitNum = Number(limit);
     const skip = (pageNum - 1) * limitNum;
@@ -924,11 +897,6 @@ const unifiedSearch = async (req: any, res: any) => {
           timestamp: new Date(),
         };
 
-        console.log(
-          "Unified Search - searchData before save:",
-          JSON.stringify(searchData, null, 2)
-        );
-
         const updatedUser = await User.findByIdAndUpdate(
           userId,
           {
@@ -968,6 +936,203 @@ const unifiedSearch = async (req: any, res: any) => {
         (error instanceof Error ? error.message : "Unknown error"),
     });
   }
+};
+
+const clearAllSearchHistory = async (userId: string) => {
+  const user = await User.findById(userId);
+  if (!user) {
+    throw new ApiError(httpStatus.NOT_FOUND, "User not found");
+  }
+
+  // Clear all search history
+  const updatedUser = await User.findByIdAndUpdate(
+    userId,
+    { $set: { searchHistory: [] } },
+    { new: true }
+  );
+
+  return {
+    success: true,
+    message: "All search history cleared successfully",
+    totalCleared: user.searchHistory?.length || 0,
+  };
+};
+
+const clearSingleSearchHistory = async (
+  userId: string,
+  searchIndex: number
+) => {
+  const user = await User.findById(userId);
+  if (!user) {
+    throw new ApiError(httpStatus.NOT_FOUND, "User not found");
+  }
+
+  if (!user.searchHistory || user.searchHistory.length === 0) {
+    throw new ApiError(httpStatus.BAD_REQUEST, "No search history found");
+  }
+
+  // Sort search history to match the display order (newest first)
+  const sortedSearchHistory = [...user.searchHistory].sort(
+    (a: any, b: any) =>
+      new Date(b.timestamp || b.createdAt || 0).getTime() -
+      new Date(a.timestamp || a.createdAt || 0).getTime()
+  );
+
+  // Filter to get only items with searchTerm (to match the display)
+  const filteredSearchHistory = sortedSearchHistory.filter((search: any) => search.searchTerm);
+
+  // Adjust searchIndex to be 0-based (since frontend sends 1-based index)
+  const adjustedIndex = searchIndex - 1;
+
+  if (adjustedIndex < 0 || adjustedIndex >= filteredSearchHistory.length) {
+    throw new ApiError(httpStatus.BAD_REQUEST, "Invalid search history index");
+  }
+
+  // Get the item to be removed from the filtered array
+  const itemToRemove = filteredSearchHistory[adjustedIndex];
+
+  // Find this item in the original array and remove it
+  const originalArray = [...user.searchHistory];
+  const originalIndex = originalArray.findIndex(
+    (item: any) =>
+      item.timestamp?.getTime() === itemToRemove.timestamp?.getTime() ||
+      (item.searchTerm === itemToRemove.searchTerm &&
+        item.searchType === itemToRemove.searchType)
+  );
+
+  if (originalIndex === -1) {
+    throw new ApiError(httpStatus.BAD_REQUEST, "Search history item not found");
+  }
+
+  // Remove the item from the original array
+  const removedItem = originalArray.splice(originalIndex, 1)[0];
+
+  const updatedUser = await User.findByIdAndUpdate(
+    userId,
+    { $set: { searchHistory: originalArray } },
+    { new: true }
+  );
+
+  return {
+    success: true,
+    message: "Search history item removed successfully",
+    removedItem: {
+      searchTerm: (removedItem as any)?.searchTerm,
+      searchType: (removedItem as any)?.searchType,
+      timestamp: (removedItem as any)?.timestamp,
+    },
+    remainingCount: updatedUser?.searchHistory?.length || 0,
+  };
+};
+
+const recentSearchAndViewed = async (userId: string) => {
+  const user = await User.findById(userId).select(
+    "searchHistory latitude longitude _id"
+  );
+  if (!user) {
+    throw new ApiError(httpStatus.NOT_FOUND, "User not found");
+  }
+
+  // Get user location for distance calculation
+  const userLocation =
+    typeof user.latitude === "number" && typeof user.longitude === "number"
+      ? { latitude: user.latitude, longitude: user.longitude }
+      : null;
+
+  // Extract search history with IDs and sort by newest first
+  const sortedSearchHistory = user.searchHistory
+    ? [...user.searchHistory].sort(
+        (a: any, b: any) =>
+          new Date(b.timestamp || b.createdAt || 0).getTime() -
+          new Date(a.timestamp || a.createdAt || 0).getTime()
+      )
+    : [];
+
+  // Filter items with searchTerm first, then assign sequential IDs
+  const searchHistory = sortedSearchHistory
+    .filter((search: any) => search.searchTerm) // Filter first
+    .map((search: any, index: number) => ({
+      id: index + 1, // Now assign sequential IDs after filtering
+      searchTerm: search.searchTerm,
+    })) || [];
+  const recentlyViewedIds: string[] = [];
+  if (sortedSearchHistory.length > 0) {
+    sortedSearchHistory.forEach((search: any) => {
+      if (search.resultServices && Array.isArray(search.resultServices)) {
+        recentlyViewedIds.push(...search.resultServices);
+      }
+    });
+  }
+
+  // Remove duplicates from recentlyViewed
+  const uniqueRecentlyViewedIds = [...new Set(recentlyViewedIds)];
+
+  // Fetch service details for recently viewed service IDs
+  let recentlyViewedServices: any[] = [];
+  if (uniqueRecentlyViewedIds.length > 0) {
+    const services = await Service.find({
+      _id: {
+        $in: uniqueRecentlyViewedIds.map(
+          (id) => new mongoose.Types.ObjectId(id)
+        ),
+      },
+    })
+      .populate({
+        path: "providerId",
+        select:
+          "userName firstName lastName profilePicture city streetAddress profession isVerified latitude longitude",
+        match: { role: "PROFESSIONAL" },
+      })
+      .populate({
+        path: "categoryId",
+        select: "name",
+      })
+      .lean()
+      .sort({ createdAt: -1 });
+
+    // Filter out services without valid providers and format response
+    recentlyViewedServices = services
+      .filter((service: any) => service.providerId !== null)
+      .map((service: any) => {
+        const baseResponse = {
+          serviceId: service._id?.toString(),
+          serviceName: service.name,
+          serviceImage: service.photo,
+          servicePrice: service.price,
+          providerName: service.providerId?.userName,
+          providerImage: service.providerId?.profilePicture,
+          providerId: service.providerId?._id?.toString(),
+        };
+
+        // Calculate distance if both user and provider have coordinates
+        let distance = null;
+        if (
+          userLocation &&
+          service.providerId &&
+          typeof service.providerId.latitude === "number" &&
+          typeof service.providerId.longitude === "number"
+        ) {
+          const rawDistance = haversineDistance(
+            userLocation.latitude,
+            userLocation.longitude,
+            service.providerId.latitude,
+            service.providerId.longitude
+          );
+          distance = Math.round(rawDistance * 100) / 100;
+        }
+
+        return {
+          ...baseResponse,
+          distance,
+        };
+      });
+  }
+
+  return {
+    searchHistory,
+    recentlyViewed: recentlyViewedServices,
+    totalRecentlyViewed: recentlyViewedServices.length,
+  };
 };
 
 const suggestedServices = async (userId: string) => {
@@ -1011,19 +1176,15 @@ const suggestedServices = async (userId: string) => {
           serviceName: service.name,
           serviceImage: service.photo,
           servicePrice: service.price,
-          serviceDescription: service.description,
-          categoryId: service.categoryId?._id?.toString(),
-          categoryName: service.categoryId?.name,
-          providerName:
-            service.providerId?.userName ||
-            `${service.providerId?.firstName || ""} ${
-              service.providerId?.lastName || ""
-            }`.trim(),
+          //serviceDescription: service.description,
+          //categoryId: service.categoryId?._id?.toString(),
+          //categoryName: service.categoryId?.name,
+          providerName: service.providerId?.userName,
           providerImage: service.providerId?.profilePicture,
-          providerCity: service.providerId?.city,
-          providerStreetAddress: service.providerId?.streetAddress,
-          providerProfession: service.providerId?.profession,
-          providerIsVerified: service.providerId?.isVerified || false,
+          //providerCity: service.providerId?.city,
+          //providerStreetAddress: service.providerId?.streetAddress,
+          //providerProfession: service.providerId?.profession,
+          //providerIsVerified: service.providerId?.isVerified || false,
           providerId: service.providerId?._id?.toString(),
         };
 
@@ -1070,7 +1231,10 @@ const suggestedServices = async (userId: string) => {
         Array.isArray(searchData.resultServices)
       ) {
         searchData.resultServices.forEach((serviceId: string) => {
-          serviceIds.add(serviceId);
+          // Validate that serviceId is a valid string before adding
+          if (serviceId && typeof serviceId === 'string') {
+            serviceIds.add(serviceId);
+          }
         });
       }
     }
@@ -1081,34 +1245,47 @@ const suggestedServices = async (userId: string) => {
     // Get services from search history first
     let historyServices: any[] = [];
     if (serviceIdArray.length > 0) {
-      historyServices = await Service.find({
-        _id: {
-          $in: serviceIdArray.map((id) => new mongoose.Types.ObjectId(id)),
-        },
-      })
-        .populate({
-          path: "providerId",
-          select:
-            "userName firstName lastName profilePicture city streetAddress profession isVerified latitude longitude",
-          match: { role: "PROFESSIONAL" },
-        })
-        .populate({
-          path: "categoryId",
-          select: "name",
-        })
-        .lean()
-        .sort({ createdAt: -1 });
+      // Filter out invalid ObjectIDs before querying
+      const validServiceIds = serviceIdArray.filter(id => {
+        try {
+          new mongoose.Types.ObjectId(id);
+          return true;
+        } catch (error) {
+          return false;
+        }
+      });
 
-      // Filter out services without valid providers
-      historyServices = historyServices.filter(
-        (service) => service.providerId !== null
-      );
+      if (validServiceIds.length > 0) {
+        historyServices = await Service.find({
+          _id: {
+            $in: validServiceIds.map((id) => new mongoose.Types.ObjectId(id)),
+          },
+        })
+          .populate({
+            path: "providerId",
+            select:
+              "userName firstName lastName profilePicture city streetAddress profession isVerified latitude longitude",
+            match: { role: "PROFESSIONAL" },
+          })
+          .populate({
+            path: "categoryId",
+            select: "name",
+          })
+          .lean()
+          .sort({ createdAt: -1 });
+
+        // Filter out services without valid providers
+        historyServices = historyServices.filter(
+          (service) => service.providerId !== null
+        );
+      }
     }
 
     // If we need more services to reach 10, get additional random ones
     let additionalServices: any[] = [];
     if (historyServices.length < 10) {
       const usedIds = historyServices.map((s) => s._id.toString());
+      
       additionalServices = await Service.find({
         _id: { $nin: usedIds.map((id) => new mongoose.Types.ObjectId(id)) },
       })
@@ -1144,19 +1321,15 @@ const suggestedServices = async (userId: string) => {
         serviceName: service.name,
         serviceImage: service.photo,
         servicePrice: service.price,
-        serviceDescription: service.description,
-        categoryId: service.categoryId?._id?.toString(),
-        categoryName: service.categoryId?.name,
-        providerName:
-          service.providerId?.userName ||
-          `${service.providerId?.firstName || ""} ${
-            service.providerId?.lastName || ""
-          }`.trim(),
+        //serviceDescription: service.description,
+        //categoryId: service.categoryId?._id?.toString(),
+        //categoryName: service.categoryId?.name,
+        providerName: service.providerId?.userName,
         providerImage: service.providerId?.profilePicture,
-        providerCity: service.providerId?.city,
-        providerStreetAddress: service.providerId?.streetAddress,
-        providerProfession: service.providerId?.profession,
-        providerIsVerified: service.providerId?.isVerified || false,
+        //providerCity: service.providerId?.city,
+        //providerStreetAddress: service.providerId?.streetAddress,
+        //providerProfession: service.providerId?.profession,
+        //providerIsVerified: service.providerId?.isVerified || false,
         providerId: service.providerId?._id?.toString(),
       };
 
@@ -1219,5 +1392,8 @@ export const ServiceService = {
   deleteFromDb,
   filterServices,
   unifiedSearch,
+  recentSearchAndViewed,
   suggestedServices,
+  clearAllSearchHistory,
+  clearSingleSearchHistory,
 };

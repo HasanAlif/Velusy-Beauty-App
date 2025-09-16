@@ -286,6 +286,19 @@ export const unifiedSearch = catchAsync(async (req: Request, res: Response) => {
   await ServiceService.unifiedSearch(req, res);
 });
 
+export const getRecentSearchAndViewed = catchAsync(
+  async (req: Request & { user?: any }, res: Response) => {
+    const result = await ServiceService.recentSearchAndViewed(req.user.id);
+
+    sendResponse(res, {
+      statusCode: httpStatus.OK,
+      success: true,
+      message: "Recent search and viewed retrieved successfully",
+      data: result,
+    });
+  }
+);
+
 export const getSuggestedServices = catchAsync(
   async (req: Request & { user?: any }, res: Response) => {
     const result = await ServiceService.suggestedServices(req.user.id);
@@ -299,6 +312,43 @@ export const getSuggestedServices = catchAsync(
         basedOn: result.basedOn,
         total: result.suggestions.length,
       },
+    });
+  }
+);
+
+export const clearAllSearchHistory = catchAsync(
+  async (req: Request & { user?: any }, res: Response) => {
+    const result = await ServiceService.clearAllSearchHistory(req.user.id);
+
+    sendResponse(res, {
+      statusCode: httpStatus.OK,
+      success: true,
+      message: result.message,
+      data: result,
+    });
+  }
+);
+
+export const clearSingleSearchHistory = catchAsync(
+  async (req: Request & { user?: any }, res: Response) => {
+    const searchIndex = parseInt(req.params.index);
+    
+    if (isNaN(searchIndex)) {
+      return sendResponse(res, {
+        statusCode: httpStatus.BAD_REQUEST,
+        success: false,
+        message: "Invalid search history index provided",
+        data: null,
+      });
+    }
+
+    const result = await ServiceService.clearSingleSearchHistory(req.user.id, searchIndex);
+
+    sendResponse(res, {
+      statusCode: httpStatus.OK,
+      success: true,
+      message: result.message,
+      data: result,
     });
   }
 );

@@ -17,7 +17,10 @@ import {
   getSavedServices,
   filterServices,
   unifiedSearch,
+  getRecentSearchAndViewed,
   getSuggestedServices,
+  clearAllSearchHistory,
+  clearSingleSearchHistory,
 } from "./service.controller";
 import { fileUploader } from "../../../helpars/fileUploader";
 import { UserRole } from "../../models";
@@ -44,6 +47,12 @@ router.get(
   "/suggestions",
   auth(UserRole.GUEST),
   getSuggestedServices
+);
+
+router.get(
+  "/recent-search-viewed",
+  auth(UserRole.GUEST),
+  getRecentSearchAndViewed
 );
 
 router.get(
@@ -100,5 +109,18 @@ router.get(
 router.get("/:id", getServiceById);
 
 router.delete("/:id", auth(), deleteService);
+
+// Search history management routes
+router.delete(
+  "/search-history/clear-all",
+  auth(UserRole.GUEST),
+  clearAllSearchHistory
+);
+
+router.delete(
+  "/search-history/:index",
+  auth(UserRole.GUEST),
+  clearSingleSearchHistory
+);
 
 export const serviceRoutes = router;
