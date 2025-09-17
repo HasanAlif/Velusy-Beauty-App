@@ -6,6 +6,7 @@ import { serviceRoutes } from "../modules/service/service.routes";
 import { supportRoutes } from "../modules/support/support.routes";
 import { DistanceRoutes } from "../modules/distance/distance.routes";
 import { adminRoutes } from "../modules/admin/admin.routes";
+import { bookingRoutes } from "../modules/booking/booking.routes";
 
 const router = express.Router();
 
@@ -21,6 +22,10 @@ const moduleRoutes = [
   {
     path: "/notifications",
     route: notificationsRoute,
+  },
+  {
+    path: "/booking",
+    route: bookingRoutes,
   },
   {
     path: "/services",
