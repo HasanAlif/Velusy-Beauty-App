@@ -20,4 +20,10 @@ router.get(
   bookingController.getBookingRequest
 );
 
+router.post(
+  "/book-now/:bookingId",
+  auth(UserRole.GUEST),
+  bookingController.bookNow
+);
+
 export const bookingRoutes = router;

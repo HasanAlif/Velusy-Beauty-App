@@ -12,15 +12,25 @@ const createBookingRequest = catchAsync(async (req, res) => {
 
   const { guestId, ...data } = req.body;
 
-  if (!guestId || typeof guestId !== 'string' || guestId.trim() === '') {
-    throw new ApiError(httpStatus.BAD_REQUEST, "guestId is required and must be a non-empty string in request body");
+  if (!guestId || typeof guestId !== "string" || guestId.trim() === "") {
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      "guestId is required and must be a non-empty string in request body"
+    );
   }
 
   if (!mongoose.Types.ObjectId.isValid(guestId)) {
-    throw new ApiError(httpStatus.BAD_REQUEST, "guestId must be a valid MongoDB ObjectId");
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      "guestId must be a valid MongoDB ObjectId"
+    );
   }
 
-  const parseResult = createBookingSchema.safeParse({ senderId: userId, receiverId: guestId, ...data });
+  const parseResult = createBookingSchema.safeParse({
+    senderId: userId,
+    receiverId: guestId,
+    ...data,
+  });
   if (!parseResult.success) {
     throw new ApiError(
       httpStatus.BAD_REQUEST,
@@ -28,7 +38,11 @@ const createBookingRequest = catchAsync(async (req, res) => {
     );
   }
 
-  const bookingResult = await bookingService.createBookingRequest(userId, guestId, data);
+  const bookingResult = await bookingService.createBookingRequest(
+    userId,
+    guestId,
+    data
+  );
   sendResponse(res, {
     statusCode: httpStatus.CREATED,
     success: true,
@@ -36,7 +50,6 @@ const createBookingRequest = catchAsync(async (req, res) => {
     data: bookingResult.booking,
   });
 });
-
 
 const getBookingRequest = catchAsync(async (req, res) => {
   const userId = req.user?._id || req.user?.id || req.user?.userId;
@@ -51,7 +64,21 @@ const getBookingRequest = catchAsync(async (req, res) => {
   });
 });
 
+const bookNow = catchAsync(async (req, res) => {
+  const userId = req.user?._id || req.user?.id || req.user?.userId;
+  const { bookingId } = req.params;
+
+  const booking = await bookingService.bookNow(userId, { bookingId });
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "Booking confirmed successfully",
+    data: booking,
+  });
+});
+
 export const bookingController = {
   createBookingRequest,
   getBookingRequest,
+  bookNow,
 };

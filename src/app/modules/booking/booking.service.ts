@@ -47,7 +47,6 @@ const createBookingRequest = async (
       );
     }
 
-    
     if (!mongoose.Types.ObjectId.isValid(bookingData.guestId)) {
       throw new ApiError(httpStatus.BAD_REQUEST, "Invalid guest ID provided");
     }
@@ -192,8 +191,7 @@ const createBookingRequest = async (
   }
 };
 
-
-const getBookingRequest = async (senderId : string, receiverId: string) => {
+const getBookingRequest = async (senderId: string, receiverId: string) => {
   if (!mongoose.Types.ObjectId.isValid(senderId)) {
     throw new ApiError(httpStatus.BAD_REQUEST, "Invalid sender ID provided");
   }
@@ -207,8 +205,10 @@ const getBookingRequest = async (senderId : string, receiverId: string) => {
   //   )
   //   .populate("serviceId", "name price photo description");
 
-
-  const booking = await Booking.findOne({ guestId: senderId, professionalId: receiverId })
+  const booking = await Booking.findOne({
+    guestId: senderId,
+    professionalId: receiverId,
+  })
     .sort({ createdAt: -1 })
     .populate("serviceId", "name price photo description");
 
@@ -219,7 +219,32 @@ const getBookingRequest = async (senderId : string, receiverId: string) => {
   return booking;
 };
 
+const bookNow = async (userId: string, data: { bookingId: string }) => {
+  const bookingId = data.bookingId;
+  if (!bookingId || !mongoose.Types.ObjectId.isValid(bookingId)) {
+    throw new ApiError(httpStatus.BAD_REQUEST, "Invalid or missing booking ID");
+  }
+
+  const bookingData = await Booking.findById(bookingId);
+  if (!bookingData) {
+    throw new ApiError(httpStatus.NOT_FOUND, "Booking not found");
+  }
+
+  if (bookingData.guestId.toString() !== userId) {
+    throw new ApiError(
+      httpStatus.FORBIDDEN,
+      "You can only accept bookings for your own services"
+    );
+  }
+
+  bookingData.status = "Accepted";
+  const result = await bookingData.save();
+
+  return result;
+};
+
 export const bookingService = {
   createBookingRequest,
   getBookingRequest,
+  bookNow,
 };
