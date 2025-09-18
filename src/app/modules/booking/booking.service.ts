@@ -5,7 +5,25 @@ import httpStatus from "http-status";
 import { User } from "../../models/User.model";
 import { Service } from "../service/service.model";
 
-const createBookingRequest = async (data: any) => {
+const createBookingRequest = async (
+  senderId: string,
+  receiverId: string,
+  data: any
+) => {
+  if (!senderId || !receiverId) {
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      "senderId and receiverId are required"
+    );
+  }
+
+  // Set professionalId from senderId (professional), guestId from receiverId (guest)
+  const bookingData = {
+    ...data,
+    professionalId: senderId,
+    guestId: receiverId,
+  };
+
   const session = await mongoose.startSession();
 
   try {
@@ -16,12 +34,11 @@ const createBookingRequest = async (data: any) => {
       "guestId",
       "professionalId",
       "serviceId",
-      "price",
       "date",
       "location",
       "scheduledAt",
     ];
-    const missingFields = requiredFields.filter((field) => !data[field]);
+    const missingFields = requiredFields.filter((field) => !bookingData[field]);
 
     if (missingFields.length > 0) {
       throw new ApiError(
@@ -30,44 +47,36 @@ const createBookingRequest = async (data: any) => {
       );
     }
 
-    // Validate ObjectIds
-    if (!mongoose.Types.ObjectId.isValid(data.guestId)) {
+    
+    if (!mongoose.Types.ObjectId.isValid(bookingData.guestId)) {
       throw new ApiError(httpStatus.BAD_REQUEST, "Invalid guest ID provided");
     }
-    if (!mongoose.Types.ObjectId.isValid(data.professionalId)) {
+    if (!mongoose.Types.ObjectId.isValid(bookingData.professionalId)) {
       throw new ApiError(
         httpStatus.BAD_REQUEST,
         "Invalid professional ID provided"
       );
     }
-    if (!mongoose.Types.ObjectId.isValid(data.serviceId)) {
+    if (!mongoose.Types.ObjectId.isValid(bookingData.serviceId)) {
       throw new ApiError(httpStatus.BAD_REQUEST, "Invalid service ID provided");
     }
 
-    // Validate that guest and professional are different users
-    if (data.guestId.toString() === data.professionalId.toString()) {
-      throw new ApiError(
-        httpStatus.BAD_REQUEST,
-        "Guest and professional cannot be the same user"
-      );
-    }
-
     // Verify guest exists and has GUEST role
-    const guest = await User.findById(data.guestId).session(session);
+    const guest = await User.findById(bookingData.guestId).session(session);
     if (!guest) {
       throw new ApiError(httpStatus.NOT_FOUND, "Guest user not found");
     }
     if (guest.role !== "GUEST") {
       throw new ApiError(
         httpStatus.BAD_REQUEST,
-        "User must have GUEST role to create booking"
+        "User should create booking with GUEST role"
       );
     }
 
     // Verify professional exists and has PROFESSIONAL role
-    const professional = await User.findById(data.professionalId).session(
-      session
-    );
+    const professional = await User.findById(
+      bookingData.professionalId
+    ).session(session);
     if (!professional) {
       throw new ApiError(httpStatus.NOT_FOUND, "Professional user not found");
     }
@@ -79,19 +88,28 @@ const createBookingRequest = async (data: any) => {
     }
 
     // Verify service exists and belongs to the professional
-    const service = await Service.findById(data.serviceId).session(session);
+    const service = await Service.findById(bookingData.serviceId).session(
+      session
+    );
     if (!service) {
       throw new ApiError(httpStatus.NOT_FOUND, "Service not found");
     }
-    if (service.providerId.toString() !== data.professionalId.toString()) {
+    if (
+      service.providerId.toString() !== bookingData.professionalId.toString()
+    ) {
       throw new ApiError(
         httpStatus.BAD_REQUEST,
         "Service does not belong to the specified professional"
       );
     }
 
+    // Fetch service data and add to bookingData
+    bookingData.serviceName = service.name;
+    bookingData.price = service.price;
+    bookingData.description = service.description;
+
     // Validate booking date is in the future
-    const bookingDate = new Date(data.date);
+    const bookingDate = new Date(bookingData.date);
     const now = new Date();
     if (bookingDate <= now) {
       throw new ApiError(
@@ -101,7 +119,7 @@ const createBookingRequest = async (data: any) => {
     }
 
     // Validate price is positive
-    if (data.price <= 0) {
+    if (bookingData.price <= 0) {
       throw new ApiError(
         httpStatus.BAD_REQUEST,
         "Price must be greater than 0"
@@ -109,7 +127,7 @@ const createBookingRequest = async (data: any) => {
     }
 
     // Validate extrasPrice if provided
-    if (data.extrasPrice && data.extrasPrice < 0) {
+    if (bookingData.extrasPrice && bookingData.extrasPrice < 0) {
       throw new ApiError(
         httpStatus.BAD_REQUEST,
         "Extras price cannot be negative"
@@ -118,9 +136,9 @@ const createBookingRequest = async (data: any) => {
 
     // Check for conflicting bookings at the same time slot
     const conflictingBooking = await Booking.findOne({
-      professionalId: data.professionalId,
+      professionalId: bookingData.professionalId,
       date: bookingDate,
-      scheduledAt: data.scheduledAt,
+      scheduledAt: bookingData.scheduledAt,
       status: { $in: ["Requested", "Accepted", "InProgress"] },
     }).session(session);
 
@@ -132,12 +150,9 @@ const createBookingRequest = async (data: any) => {
     }
 
     // Prepare booking data with service title if not provided
-    const bookingData = {
-      ...data,
-      serviceTitle: data.serviceTitle || service.name,
-      extrasPrice: data.extrasPrice || 0,
-      status: "Requested", // Ensure status is set to default
-    };
+    bookingData.serviceTitle = bookingData.serviceTitle || service.name;
+    bookingData.extrasPrice = bookingData.extrasPrice || 0;
+    bookingData.status = "Requested"; // Ensure status is set to default
 
     // Create the booking
     const result = await Booking.create([bookingData], { session });
@@ -177,6 +192,34 @@ const createBookingRequest = async (data: any) => {
   }
 };
 
+
+const getBookingRequest = async (senderId : string, receiverId: string) => {
+  if (!mongoose.Types.ObjectId.isValid(senderId)) {
+    throw new ApiError(httpStatus.BAD_REQUEST, "Invalid sender ID provided");
+  }
+
+  // const booking = await Booking.findOne({ guestId: senderId, professionalId: receiverId })
+  //   .sort({ createdAt: -1 })
+  //   .populate("guestId", "firstName lastName email profilePicture phone")
+  //   .populate(
+  //     "professionalId",
+  //     "firstName lastName email profilePicture phone profession city"
+  //   )
+  //   .populate("serviceId", "name price photo description");
+
+
+  const booking = await Booking.findOne({ guestId: senderId, professionalId: receiverId })
+    .sort({ createdAt: -1 })
+    .populate("serviceId", "name price photo description");
+
+  if (!booking) {
+    throw new ApiError(httpStatus.NOT_FOUND, "Booking not found");
+  }
+
+  return booking;
+};
+
 export const bookingService = {
   createBookingRequest,
+  getBookingRequest,
 };

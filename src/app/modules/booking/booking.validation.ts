@@ -24,12 +24,12 @@ export const bookingValidation = {
 };
 
 export const createBookingSchema = z.object({
-  guestId: z.string().min(1, "Guest ID is required").optional(),
-  professionalId: z.string().min(1, "Professional ID is required"),
+  senderId: z.string().min(1, "Professional ID is required"),
+  receiverId: z.string().min(1, "Guest ID is required"),
   serviceId: z.string().min(1, "Service ID is required"),
   serviceTitle: z.string().optional(),
   extraService: z.string().optional(),
-  price: z.number().positive("Price must be greater than 0"),
+  price: z.number().positive("Price must be greater than 0").optional(),
   extrasPrice: z.number().min(0).optional(),
   date: z.string().min(1, "Date is required"),
   location: z.string().min(1, "Location is required"),

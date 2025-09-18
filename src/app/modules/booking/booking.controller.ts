@@ -1,33 +1,34 @@
-import httpStatus from 'http-status';
-import sendResponse from '../../../shared/sendResponse';
-import catchAsync from '../../../shared/catchAsync';
-import { bookingService } from './booking.service';
+import httpStatus from "http-status";
+import sendResponse from "../../../shared/sendResponse";
+import catchAsync from "../../../shared/catchAsync";
+import { bookingService } from "./booking.service";
 
-import { createBookingSchema } from './booking.validation';
-import ApiError from '../../../errors/ApiErrors';
+import { createBookingSchema } from "./booking.validation";
+import ApiError from "../../../errors/ApiErrors";
+import mongoose from "mongoose";
 
 const createBookingRequest = catchAsync(async (req, res) => {
-  // Merge guestId from logged-in user into request body
-  // Grab user id from token payload - support both `id` and `_id` fields
   const userId = req.user?._id || req.user?.id || req.user?.userId;
 
-  const bookingData = {
-    ...req.body,
-    guestId: userId,
-  };
+  const { guestId, ...data } = req.body;
 
-  // Validate merged bookingData using Zod schema
-  const parseResult = createBookingSchema.safeParse(bookingData);
+  if (!guestId || typeof guestId !== 'string' || guestId.trim() === '') {
+    throw new ApiError(httpStatus.BAD_REQUEST, "guestId is required and must be a non-empty string in request body");
+  }
+
+  if (!mongoose.Types.ObjectId.isValid(guestId)) {
+    throw new ApiError(httpStatus.BAD_REQUEST, "guestId must be a valid MongoDB ObjectId");
+  }
+
+  const parseResult = createBookingSchema.safeParse({ senderId: userId, receiverId: guestId, ...data });
   if (!parseResult.success) {
-    // Return error if validation fails
     throw new ApiError(
       httpStatus.BAD_REQUEST,
-      parseResult.error.errors.map((e) => e.message).join(', ')
+      parseResult.error.errors.map((e) => e.message).join(", ")
     );
   }
 
-  // Proceed to the service layer if validation passes
-  const bookingResult = await bookingService.createBookingRequest(bookingData);
+  const bookingResult = await bookingService.createBookingRequest(userId, guestId, data);
   sendResponse(res, {
     statusCode: httpStatus.CREATED,
     success: true,
@@ -37,7 +38,20 @@ const createBookingRequest = catchAsync(async (req, res) => {
 });
 
 
+const getBookingRequest = catchAsync(async (req, res) => {
+  const userId = req.user?._id || req.user?.id || req.user?.userId;
+  const { guestId } = req.params;
+
+  const booking = await bookingService.getBookingRequest(userId, guestId);
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "Booking request retrieved successfully",
+    data: booking,
+  });
+});
 
 export const bookingController = {
   createBookingRequest,
+  getBookingRequest,
 };

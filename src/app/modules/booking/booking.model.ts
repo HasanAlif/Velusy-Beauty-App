@@ -5,10 +5,10 @@ interface IBooking extends Document {
   guestId: Types.ObjectId;
   professionalId: Types.ObjectId;
   serviceId: Types.ObjectId;
-  serviceTitle: string;
-  extraService: string;
-  price: number;
-  extrasPrice: number;
+  serviceTitle?: string;
+  extraService?: string;
+  price?: number;
+  extrasPrice?: number;
   date: Date;
   location: string;
   description?: string;
