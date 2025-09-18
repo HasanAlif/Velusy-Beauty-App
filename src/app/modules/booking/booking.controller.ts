@@ -77,8 +77,22 @@ const bookNow = catchAsync(async (req, res) => {
   });
 });
 
+const confirmBooking = catchAsync(async (req, res) => {
+  const userId = req.user?._id || req.user?.id || req.user?.userId;
+  const { bookingId } = req.params;
+
+  const booking = await bookingService.confirmBooking(userId, { bookingId });
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "Booking confirmed successfully",
+    data: booking,
+  });
+});
+
 export const bookingController = {
   createBookingRequest,
   getBookingRequest,
   bookNow,
+  confirmBooking,
 };

@@ -243,8 +243,34 @@ const bookNow = async (userId: string, data: { bookingId: string }) => {
   return result;
 };
 
+
+const confirmBooking = async (userId: string, data: { bookingId: string }) => {
+  const bookingId = data.bookingId;
+  if (!bookingId || !mongoose.Types.ObjectId.isValid(bookingId)) {
+    throw new ApiError(httpStatus.BAD_REQUEST, "Invalid or missing booking ID");
+  }
+
+  const bookingData = await Booking.findById(bookingId);
+  if (!bookingData) {
+    throw new ApiError(httpStatus.NOT_FOUND, "Booking not found");
+  }
+
+  if (bookingData.guestId.toString() !== userId) {
+    throw new ApiError(
+      httpStatus.FORBIDDEN,
+      "You can only confirm bookings for your own services"
+    );
+  }
+
+  bookingData.status = "InProgress";
+  const result = await bookingData.save();
+
+  return result;
+};
+
 export const bookingService = {
   createBookingRequest,
   getBookingRequest,
   bookNow,
+  confirmBooking,
 };

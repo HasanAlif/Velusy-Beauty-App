@@ -26,4 +26,10 @@ router.post(
   bookingController.bookNow
 );
 
+router.post(
+  "/confirm-booking/:bookingId",
+  auth(UserRole.GUEST),
+  bookingController.confirmBooking
+);
+
 export const bookingRoutes = router;
