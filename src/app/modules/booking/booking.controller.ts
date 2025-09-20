@@ -90,9 +90,28 @@ const confirmBooking = catchAsync(async (req, res) => {
   });
 });
 
+const scheduleRequest = catchAsync(async (req, res) => {
+  const userId = req.user?._id || req.user?.id || req.user?.userId;
+  const { serviceId, date, time, location } = req.body;
+
+  const result = await bookingService.scheduleRequest(userId, {
+    serviceId,
+    date,
+    time,
+    location,
+  });
+  sendResponse(res, {
+    statusCode: httpStatus.CREATED,
+    success: true,
+    message: result.message,
+    data: result.booking,
+  });
+});
+
 export const bookingController = {
   createBookingRequest,
   getBookingRequest,
   bookNow,
   confirmBooking,
+  scheduleRequest,
 };

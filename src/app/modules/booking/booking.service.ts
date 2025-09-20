@@ -243,7 +243,6 @@ const bookNow = async (userId: string, data: { bookingId: string }) => {
   return result;
 };
 
-
 const confirmBooking = async (userId: string, data: { bookingId: string }) => {
   const bookingId = data.bookingId;
   if (!bookingId || !mongoose.Types.ObjectId.isValid(bookingId)) {
@@ -268,9 +267,130 @@ const confirmBooking = async (userId: string, data: { bookingId: string }) => {
   return result;
 };
 
+const scheduleRequest = async (
+  userId: string,
+  data: { serviceId: string; date: string; time: string; location: string }
+) => {
+  const { serviceId, date, time, location } = data;
+
+  if (!serviceId || !date || !time) {
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      "serviceId, date, and time are required"
+    );
+  }
+
+  if (!mongoose.Types.ObjectId.isValid(serviceId)) {
+    throw new ApiError(httpStatus.BAD_REQUEST, "Invalid service ID");
+  }
+
+  // Find the service
+  const service = await Service.findById(serviceId);
+  if (!service) {
+    throw new ApiError(httpStatus.NOT_FOUND, "Service not found");
+  }
+
+  const providerId = service.providerId;
+  if (!providerId) {
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      "Service does not have a provider"
+    );
+  }
+
+  // Check for existing booking at the same time
+  const existingBooking = await Booking.findOne({
+    serviceId,
+    date,
+    scheduledAt: time,
+    status: { $in: ["Requested", "Accepted", "InProgress"] },
+  });
+
+  if (existingBooking) {
+    throw new ApiError(
+      httpStatus.CONFLICT,
+      "Service is already booked at this time"
+    );
+  }
+
+  // Find the provider
+  const provider = await User.findById(providerId);
+  if (!provider || provider.role !== "PROFESSIONAL") {
+    throw new ApiError(
+      httpStatus.NOT_FOUND,
+      "Provider not found or not a professional"
+    );
+  }
+
+  // Check provider's schedule
+  const schedule = (provider.schedule as any) || {};
+  const dayOfWeek = new Date(date)
+    .toLocaleString("en-US", { weekday: "long" })
+    .toLowerCase(); // e.g., "monday"
+
+  let isAvailable = false;
+
+  // Check specific date schedule
+  if (schedule[date]) {
+    const timeSlot = schedule[date].find((slot: any) => slot.time === time);
+    if (timeSlot && timeSlot.status === "AVAILABLE") {
+      isAvailable = true;
+    }
+  } else if (schedule[dayOfWeek]) {
+    // Check weekly schedule
+    const weeklySlots = schedule[dayOfWeek];
+    if (Array.isArray(weeklySlots) && weeklySlots.length > 0) {
+      // If it's array of strings like "09:00-17:00"
+      if (typeof weeklySlots[0] === "string") {
+        const range = weeklySlots[0] as string;
+        const [start, end] = range.split("-");
+        if (time >= start && time <= end) {
+          isAvailable = true;
+        }
+      } else {
+        // If it's array of objects
+        const timeSlot = weeklySlots.find((slot: any) => slot.time === time);
+        if (timeSlot && timeSlot.status === "AVAILABLE") {
+          isAvailable = true;
+        }
+      }
+    }
+  }
+
+  if (!isAvailable) {
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      "Provider is not available at this time"
+    );
+  }
+
+  // Create the booking request
+  const bookingData = {
+    guestId: userId,
+    professionalId: providerId,
+    serviceId,
+    date,
+    scheduledAt: time,
+    location,
+    status: "Requested",
+    serviceName: service.name,
+    price: service.price,
+    description: service.description,
+  };
+
+  const newBooking = await Booking.create(bookingData);
+
+  return {
+    success: true,
+    message: "Schedule request created successfully",
+    booking: newBooking,
+  };
+};
+
 export const bookingService = {
   createBookingRequest,
   getBookingRequest,
   bookNow,
   confirmBooking,
+  scheduleRequest,
 };

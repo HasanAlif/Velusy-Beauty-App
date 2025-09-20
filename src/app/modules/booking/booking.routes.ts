@@ -2,7 +2,10 @@ import express from "express";
 import auth from "../../middlewares/auth";
 import validateRequest from "../../middlewares/validateRequest";
 import { bookingController } from "./booking.controller";
-import { createBookingRequestSchema } from "./booking.validation";
+import {
+  createBookingRequestSchema,
+  scheduleRequestValidationSchema,
+} from "./booking.validation";
 import { UserRole } from "../../models";
 
 const router = express.Router();
@@ -30,6 +33,13 @@ router.post(
   "/confirm-booking/:bookingId",
   auth(UserRole.GUEST),
   bookingController.confirmBooking
+);
+
+router.post(
+  "/schedule-request",
+  auth(UserRole.GUEST),
+  validateRequest(scheduleRequestValidationSchema),
+  bookingController.scheduleRequest
 );
 
 export const bookingRoutes = router;

@@ -37,9 +37,22 @@ export const createBookingSchema = z.object({
   scheduledAt: z.string().min(1, "Scheduled date is required"),
 });
 
+const scheduleRequestSchema = z.object({
+  serviceId: z.string().min(1, "Service ID is required"),
+  date: z.string().min(1, "Date is required"),
+  time: z.string().min(1, "Time is required"),
+  location: z.string().min(1, "Location is required"),
+});
+
 // Wrapper schema to match validateRequest middleware which passes { body, query, params }
 export const createBookingRequestSchema = z.object({
   body: createBookingSchema,
+  query: z.object({}).optional(),
+  params: z.object({}).optional(),
+});
+
+export const scheduleRequestValidationSchema = z.object({
+  body: scheduleRequestSchema,
   query: z.object({}).optional(),
   params: z.object({}).optional(),
 });
