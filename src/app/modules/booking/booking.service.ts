@@ -4,6 +4,7 @@ import ApiError from "../../../errors/ApiErrors";
 import httpStatus from "http-status";
 import { User } from "../../models/User.model";
 import { Service } from "../service/service.model";
+import haversineDistance from "../../../utils/HeversineDistance";
 
 const createBookingRequest = async (
   senderId: string,
@@ -387,10 +388,64 @@ const scheduleRequest = async (
   };
 };
 
+const getScheduleRequest = async (userId: string) => {
+
+  const bookings = await Booking.find({
+    professionalId: userId,
+    status: "Requested",
+  })
+    .populate(
+      "guestId","latitude longitude"
+    )
+    .populate(
+      "professionalId","latitude longitude"
+    )
+    .populate("serviceId", "name price photo description")
+    .sort({ createdAt: -1 });
+
+  // Calculate distance and return simplified response
+  const simplifiedBookings = bookings.map((booking: any) => {
+    const bookingObj = booking.toObject();
+    const guest = bookingObj.guestId as any;
+    const professional = bookingObj.professionalId as any;
+    const service = bookingObj.serviceId as any;
+
+    let distance = null;
+    if (
+      guest &&
+      professional &&
+      guest.latitude &&
+      guest.longitude &&
+      professional.latitude &&
+      professional.longitude
+    ) {
+      const calculatedDistance = haversineDistance(
+        guest.latitude,
+        guest.longitude,
+        professional.latitude,
+        professional.longitude
+      );
+      distance = Math.round(calculatedDistance * 100) / 100;
+    }
+
+    return {
+      _id: bookingObj._id,
+      serviceName: service?.name || null,
+      serviceImage: service?.photo || null,
+      servicePrice: service?.price || null,
+      distance: distance,
+      createdAt: bookingObj.createdAt,
+    };
+  });
+
+  return simplifiedBookings;
+};
+
 export const bookingService = {
   createBookingRequest,
   getBookingRequest,
   bookNow,
   confirmBooking,
   scheduleRequest,
+  getScheduleRequest,
 };

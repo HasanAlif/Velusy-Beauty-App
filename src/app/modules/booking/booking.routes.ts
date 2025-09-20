@@ -42,4 +42,10 @@ router.post(
   bookingController.scheduleRequest
 );
 
+router.get(
+  "/schedule-requests",
+  auth(UserRole.PROFESSIONAL),
+  bookingController.getScheduleRequest
+);
+
 export const bookingRoutes = router;

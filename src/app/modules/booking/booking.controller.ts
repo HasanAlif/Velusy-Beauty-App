@@ -108,10 +108,23 @@ const scheduleRequest = catchAsync(async (req, res) => {
   });
 });
 
+const getScheduleRequest = catchAsync(async (req, res) => {
+  const userId = req.user?._id || req.user?.id || req.user?.userId;
+
+  const bookings = await bookingService.getScheduleRequest(userId);
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "Schedule requests retrieved successfully",
+    data: bookings,
+  });
+});
+
 export const bookingController = {
   createBookingRequest,
   getBookingRequest,
   bookNow,
   confirmBooking,
   scheduleRequest,
+  getScheduleRequest,
 };
