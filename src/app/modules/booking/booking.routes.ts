@@ -60,4 +60,10 @@ router.patch(
   bookingController.acceptScheduleRequest
 );
 
+router.patch(
+  "/reject-schedule/:bookingId",
+  auth(UserRole.PROFESSIONAL),
+  bookingController.rejectScheduleRequest
+);
+
 export const bookingRoutes = router;
