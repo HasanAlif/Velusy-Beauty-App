@@ -96,4 +96,10 @@ router.patch(
   bookingController.finishInProgressWork
 );
 
+router.get(
+  "/completed-work",
+  auth(UserRole.PROFESSIONAL),
+  bookingController.getCompletedWork
+);
+
 export const bookingRoutes = router;
