@@ -144,7 +144,7 @@ const acceptScheduleRequest = catchAsync(async (req, res) => {
   sendResponse(res, {
     statusCode: httpStatus.OK,
     success: true,
-    message: "Schedule request accepted successfully",
+    message: "Schedule request Accepted successfully",
     data: booking,
   });
 });
@@ -174,6 +174,18 @@ const getAllRejectScheduleRequest = catchAsync(async (req, res) => {
   });
 });
 
+const getAllPendingRequest = catchAsync(async (req, res) => {
+  const userId = req.user?._id || req.user?.id || req.user?.userId;
+
+  const bookings = await bookingService.getAllPendingRequest(userId);
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "All pending schedule requests retrieved successfully",
+    data: bookings,
+  });
+});
+
 export const bookingController = {
   createBookingRequest,
   getBookingRequest,
@@ -185,4 +197,5 @@ export const bookingController = {
   acceptScheduleRequest,
   rejectScheduleRequest,
   getAllRejectScheduleRequest,
+  getAllPendingRequest,
 };

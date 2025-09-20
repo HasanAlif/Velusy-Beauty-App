@@ -13,7 +13,7 @@ interface IBooking extends Document {
   location: string;
   description?: string;
   scheduledAt: string;
-  status: "Requested" | "Accepted" | "InProgress" | "Completed" | "Rejected";
+  status: "Requested" | "Pending" | "InProgress" | "Completed" | "Rejected";
   createdAt: Date;
   updatedAt: Date;
 }
@@ -66,7 +66,7 @@ const bookingSchema = new Schema<IBooking>(
     },
     status: {
       type: String,
-      enum: ["Requested", "Accepted", "InProgress", "Completed", "Rejected"],
+      enum: ["Requested", "Pending", "InProgress", "Completed", "Rejected"],
       default: "Requested",
     },
   },

@@ -72,4 +72,10 @@ router.get(
   bookingController.getAllRejectScheduleRequest
 );
 
+router.get(
+  "/pending-schedule-requests",
+  auth(UserRole.PROFESSIONAL),
+  bookingController.getAllPendingRequest
+);
+
 export const bookingRoutes = router;

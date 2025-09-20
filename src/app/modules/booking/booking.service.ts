@@ -139,7 +139,7 @@ const createBookingRequest = async (
       professionalId: bookingData.professionalId,
       date: bookingDate,
       scheduledAt: bookingData.scheduledAt,
-      status: { $in: ["Requested", "Accepted", "InProgress"] },
+      status: { $in: ["Requested", "Pending", "InProgress"] },
     }).session(session);
 
     if (conflictingBooking) {
@@ -238,7 +238,7 @@ const bookNow = async (userId: string, data: { bookingId: string }) => {
     );
   }
 
-  bookingData.status = "Accepted";
+  bookingData.status = "Pending";
   const result = await bookingData.save();
 
   return result;
@@ -304,7 +304,7 @@ const scheduleRequest = async (
     serviceId,
     date,
     scheduledAt: time,
-    status: { $in: ["Requested", "Accepted", "InProgress"] },
+    status: { $in: ["Requested", "Pending", "InProgress"] },
   });
 
   if (existingBooking) {
@@ -489,7 +489,7 @@ const acceptScheduleRequest = async (userId: string, bookingId: string) => {
       "You can only Accept your own services"
     );
   }
-  booking.status = "Accepted";
+  booking.status = "Pending";
   await booking.save();
 
   return {
@@ -571,6 +571,53 @@ const getAllRejectScheduleRequest = async (userId: string) => {
   return simplifiedBookings;
 };
 
+const getAllPendingRequest = async (userId: string) => {
+  const bookings = await Booking.find({
+    professionalId: userId,
+    status: "Pending",
+  })
+    .populate("guestId", "latitude longitude")
+    .populate("professionalId", "latitude longitude")
+    .populate("serviceId", "name price photo description")
+    .sort({ createdAt: -1 });
+
+  const simplifiedBookings = bookings.map((booking: any) => {
+    const bookingObj = booking.toObject();
+    const guest = bookingObj.guestId as any;
+    const professional = bookingObj.professionalId as any;
+    const service = bookingObj.serviceId as any;
+
+    let distance = null;
+    if (
+      guest &&
+      professional &&
+      guest.latitude &&
+      guest.longitude &&
+      professional.latitude &&
+      professional.longitude
+    ) {
+      const calculatedDistance = haversineDistance(
+        guest.latitude,
+        guest.longitude,
+        professional.latitude,
+        professional.longitude
+      );
+      distance = Math.round(calculatedDistance * 100) / 100;
+    }
+
+    return {
+      _id: bookingObj._id,
+      serviceName: service?.name || null,
+      serviceImage: service?.photo || null,
+      servicePrice: service?.price || null,
+      distance: distance,
+      RequestedStatus: booking.status,
+    };
+  });
+
+  return simplifiedBookings;
+};
+
 export const bookingService = {
   createBookingRequest,
   getBookingRequest,
@@ -582,4 +629,5 @@ export const bookingService = {
   acceptScheduleRequest,
   rejectScheduleRequest,
   getAllRejectScheduleRequest,
+  getAllPendingRequest,
 };
