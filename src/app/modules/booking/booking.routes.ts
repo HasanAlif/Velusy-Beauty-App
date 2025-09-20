@@ -78,4 +78,10 @@ router.get(
   bookingController.getAllPendingRequest
 );
 
+router.patch(
+  "/confirm-pending-request/:bookingId",
+  auth(UserRole.PROFESSIONAL),
+  bookingController.confirmPendingRequest
+);
+
 export const bookingRoutes = router;

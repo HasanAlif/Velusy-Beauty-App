@@ -186,6 +186,19 @@ const getAllPendingRequest = catchAsync(async (req, res) => {
   });
 });
 
+const confirmPendingRequest = catchAsync(async (req, res) => {
+  const userId = req.user?._id || req.user?.id || req.user?.userId;
+  const { bookingId } = req.params;
+
+  const booking = await bookingService.confirmPendingRequest(userId, bookingId);
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "Pending request confirmed successfully",
+    data: booking,
+  });
+});
+
 export const bookingController = {
   createBookingRequest,
   getBookingRequest,
@@ -198,4 +211,5 @@ export const bookingController = {
   rejectScheduleRequest,
   getAllRejectScheduleRequest,
   getAllPendingRequest,
+  confirmPendingRequest,
 };

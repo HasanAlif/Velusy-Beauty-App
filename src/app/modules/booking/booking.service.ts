@@ -262,7 +262,7 @@ const confirmBooking = async (userId: string, data: { bookingId: string }) => {
     );
   }
 
-  bookingData.status = "InProgress";
+  bookingData.status = "In Progress";
   const result = await bookingData.save();
 
   return result;
@@ -489,6 +489,13 @@ const acceptScheduleRequest = async (userId: string, bookingId: string) => {
       "You can only Accept your own services"
     );
   }
+
+  if (booking.status !== "Requested") {
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      "Only bookings with status 'Requested' can be accepted"
+    );
+  }
   booking.status = "Pending";
   await booking.save();
 
@@ -512,6 +519,13 @@ const rejectScheduleRequest = async (userId: string, bookingId: string) => {
     throw new ApiError(
       httpStatus.FORBIDDEN,
       "You can only Reject your own services"
+    );
+  }
+
+  if (booking.status !== "Requested") {
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      "Only bookings with status 'Requested' can be rejected"
     );
   }
 
@@ -618,11 +632,58 @@ const getAllPendingRequest = async (userId: string) => {
   return simplifiedBookings;
 };
 
+const confirmPendingRequest = async (userId: string, bookingId: string) => {
+  if (!mongoose.Types.ObjectId.isValid(bookingId)) {
+    throw new ApiError(httpStatus.BAD_REQUEST, "Invalid booking ID");
+  }
+
+  const booking = await Booking.findById(bookingId);
+  if (!booking) {
+    throw new ApiError(httpStatus.NOT_FOUND, "Booking not found");
+  }
+
+  if (booking.professionalId.toString() !== userId) {
+    throw new ApiError(
+      httpStatus.FORBIDDEN,
+      "You can only confirm your own services"
+    );
+  }
+
+  if (booking.status !== "Pending") {
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      "Only bookings with status 'Pending' can be confirmed"
+    );
+  }
+
+  // Check if professional already has an "In Progress" booking
+  const inProgressCount = await Booking.countDocuments({
+    professionalId: userId,
+    status: "In Progress",
+  });
+
+  if (inProgressCount > 0) {
+    throw new ApiError(
+      httpStatus.CONFLICT,
+      "You already have an In Progress Work. Please finish your current work before confirming a new one."
+    );
+  }
+
+  booking.status = "In Progress";
+  await booking.save();
+
+  return {
+    _id: booking._id,
+    RequestedStatus: booking.status,
+  };
+};
+
 export const bookingService = {
   createBookingRequest,
   getBookingRequest,
   bookNow,
   confirmBooking,
+  confirmPendingRequest,
   getIndividualScheduleRequest,
   scheduleRequest,
   getScheduleRequest,
