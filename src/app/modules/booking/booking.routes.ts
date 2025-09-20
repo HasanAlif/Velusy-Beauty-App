@@ -84,4 +84,10 @@ router.patch(
   bookingController.confirmPendingRequest
 );
 
+router.get(
+  "/in-progress-work",
+  auth(UserRole.PROFESSIONAL),
+  bookingController.getInProgressWork
+);
+
 export const bookingRoutes = router;

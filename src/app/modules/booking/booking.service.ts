@@ -678,6 +678,37 @@ const confirmPendingRequest = async (userId: string, bookingId: string) => {
   };
 };
 
+const getInProgressWork = async (userId: string) => {
+  const booking = await Booking.findOne({
+    professionalId: userId,
+    status: "In Progress",
+  })
+    .populate("guestId", "firstName lastName profilePicture")
+    .populate("serviceId", "name price photo");
+
+  if (!booking) {
+    throw new ApiError(httpStatus.NOT_FOUND, "No In Progress Work found");
+  }
+
+  const bookingObj = booking.toObject();
+  const guest = bookingObj.guestId as any;
+  const service = bookingObj.serviceId as any;
+
+  return {
+    _id: booking._id,
+    RequestedStatus: booking.status,
+    serviceImage: service?.photo || null,
+    serviceLocation: booking.location,
+    RequestedGuestImage: guest?.profilePicture || null,
+    RequestedGuestName: `${guest?.firstName || ""} ${
+      guest?.lastName || ""
+    }`.trim(),
+    serviceName: service?.name || null,
+    servicePrice: service?.price || null,
+    serviceTime: booking.scheduledAt,
+  };
+};
+
 export const bookingService = {
   createBookingRequest,
   getBookingRequest,
@@ -691,4 +722,5 @@ export const bookingService = {
   rejectScheduleRequest,
   getAllRejectScheduleRequest,
   getAllPendingRequest,
+  getInProgressWork,
 };
