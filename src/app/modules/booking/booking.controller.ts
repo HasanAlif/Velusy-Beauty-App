@@ -162,6 +162,18 @@ const rejectScheduleRequest = catchAsync(async (req, res) => {
   });
 });
 
+const getAllRejectScheduleRequest = catchAsync(async (req, res) => {
+  const userId = req.user?._id || req.user?.id || req.user?.userId;
+
+  const bookings = await bookingService.getAllRejectScheduleRequest(userId);
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "All rejected schedule requests retrieved successfully",
+    data: bookings,
+  });
+});
+
 export const bookingController = {
   createBookingRequest,
   getBookingRequest,
@@ -172,4 +184,5 @@ export const bookingController = {
   getIndividualScheduleRequest,
   acceptScheduleRequest,
   rejectScheduleRequest,
+  getAllRejectScheduleRequest,
 };

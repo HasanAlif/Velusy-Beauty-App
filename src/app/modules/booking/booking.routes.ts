@@ -66,4 +66,10 @@ router.patch(
   bookingController.rejectScheduleRequest
 );
 
+router.get(
+  "/rejected-schedule-requests",
+  auth(UserRole.PROFESSIONAL),
+  bookingController.getAllRejectScheduleRequest
+);
+
 export const bookingRoutes = router;
