@@ -48,4 +48,10 @@ router.get(
   bookingController.getScheduleRequest
 );
 
+router.get(
+  "/schedule-request/:bookingId",
+  auth(UserRole.PROFESSIONAL),
+  bookingController.getIndividualScheduleRequest
+);
+
 export const bookingRoutes = router;

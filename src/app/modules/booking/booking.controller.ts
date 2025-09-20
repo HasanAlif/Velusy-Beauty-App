@@ -120,6 +120,20 @@ const getScheduleRequest = catchAsync(async (req, res) => {
   });
 });
 
+
+const getIndividualScheduleRequest = catchAsync(async (req, res) => {
+  const userId = req.user?._id || req.user?.id || req.user?.userId;
+  const { bookingId } = req.params;
+
+  const booking = await bookingService.getIndividualScheduleRequest(userId, bookingId);
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "Individual schedule request retrieved successfully",
+    data: booking,
+  });
+});
+
 export const bookingController = {
   createBookingRequest,
   getBookingRequest,
@@ -127,4 +141,5 @@ export const bookingController = {
   confirmBooking,
   scheduleRequest,
   getScheduleRequest,
+  getIndividualScheduleRequest,
 };
