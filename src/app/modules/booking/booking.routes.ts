@@ -54,4 +54,10 @@ router.get(
   bookingController.getIndividualScheduleRequest
 );
 
+router.patch(
+  "/accept-schedule/:bookingId",
+  auth(UserRole.PROFESSIONAL),
+  bookingController.acceptScheduleRequest
+);
+
 export const bookingRoutes = router;

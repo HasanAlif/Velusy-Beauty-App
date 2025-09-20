@@ -120,16 +120,31 @@ const getScheduleRequest = catchAsync(async (req, res) => {
   });
 });
 
-
 const getIndividualScheduleRequest = catchAsync(async (req, res) => {
   const userId = req.user?._id || req.user?.id || req.user?.userId;
   const { bookingId } = req.params;
 
-  const booking = await bookingService.getIndividualScheduleRequest(userId, bookingId);
+  const booking = await bookingService.getIndividualScheduleRequest(
+    userId,
+    bookingId
+  );
   sendResponse(res, {
     statusCode: httpStatus.OK,
     success: true,
     message: "Individual schedule request retrieved successfully",
+    data: booking,
+  });
+});
+
+const acceptScheduleRequest = catchAsync(async (req, res) => {
+  const userId = req.user?._id || req.user?.id || req.user?.userId;
+  const { bookingId } = req.params;
+
+  const booking = await bookingService.acceptScheduleRequest(userId, bookingId);
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "Schedule request accepted successfully",
     data: booking,
   });
 });
@@ -142,4 +157,5 @@ export const bookingController = {
   scheduleRequest,
   getScheduleRequest,
   getIndividualScheduleRequest,
+  acceptScheduleRequest,
 };

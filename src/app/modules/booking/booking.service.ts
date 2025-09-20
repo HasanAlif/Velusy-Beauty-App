@@ -389,17 +389,12 @@ const scheduleRequest = async (
 };
 
 const getScheduleRequest = async (userId: string) => {
-
   const bookings = await Booking.find({
     professionalId: userId,
     status: "Requested",
   })
-    .populate(
-      "guestId","latitude longitude"
-    )
-    .populate(
-      "professionalId","latitude longitude"
-    )
+    .populate("guestId", "latitude longitude")
+    .populate("professionalId", "latitude longitude")
     .populate("serviceId", "name price photo description")
     .sort({ createdAt: -1 });
 
@@ -441,8 +436,10 @@ const getScheduleRequest = async (userId: string) => {
   return simplifiedBookings;
 };
 
-
-const getIndividualScheduleRequest = async (userId: string, bookingId: string) => {
+const getIndividualScheduleRequest = async (
+  userId: string,
+  bookingId: string
+) => {
   if (!mongoose.Types.ObjectId.isValid(bookingId)) {
     throw new ApiError(httpStatus.BAD_REQUEST, "Invalid booking ID");
   }
@@ -463,7 +460,44 @@ const getIndividualScheduleRequest = async (userId: string, bookingId: string) =
     serviceName: service?.name || null,
     serviceDescription: service?.description || null,
     RequestedGuestImage: guest?.profilePicture || null,
-    RequestedGuestName: `${guest?.firstName || ''} ${guest?.lastName || ''}`.trim(),
+    RequestedGuestName: `${guest?.firstName || ""} ${
+      guest?.lastName || ""
+    }`.trim(),
+    RequestedGuestStatus: guest.status,
+    servicePrice: service?.price || null,
+    RequestedTime: booking.scheduledAt,
+    RequestedDate: booking.date,
+    RequestedLocation: booking.location,
+    RequestedStatus: booking.status,
+  };
+};
+
+const acceptScheduleRequest = async (userId: string, bookingId: string) => {
+  if (!mongoose.Types.ObjectId.isValid(bookingId)) {
+    throw new ApiError(httpStatus.BAD_REQUEST, "Invalid booking ID");
+  }
+
+  const booking = await Booking.findById(bookingId)
+    .populate("guestId", "firstName lastName profilePicture status")
+    .populate("serviceId", "name price photo description");
+
+  if (!booking) {
+    throw new ApiError(httpStatus.NOT_FOUND, "Booking not found");
+  }
+
+  const service = booking.serviceId as any;
+  const guest = booking.guestId as any;
+  booking.status = "Accepted";
+  await booking.save();
+
+  return {
+    serviceImage: service?.photo || null,
+    serviceName: service?.name || null,
+    serviceDescription: service?.description || null,
+    RequestedGuestImage: guest?.profilePicture || null,
+    RequestedGuestName: `${guest?.firstName || ""} ${
+      guest?.lastName || ""
+    }`.trim(),
     RequestedGuestStatus: guest.status,
     servicePrice: service?.price || null,
     RequestedTime: booking.scheduledAt,
@@ -481,4 +515,5 @@ export const bookingService = {
   getIndividualScheduleRequest,
   scheduleRequest,
   getScheduleRequest,
+  acceptScheduleRequest,
 };
