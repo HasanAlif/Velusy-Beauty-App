@@ -709,6 +709,39 @@ const getInProgressWork = async (userId: string) => {
   };
 };
 
+const finishInProgressWork = async (userId: string, bookingId: string) => {
+  if (!mongoose.Types.ObjectId.isValid(bookingId)) {
+    throw new ApiError(httpStatus.BAD_REQUEST, "Invalid booking ID");
+  }
+
+  const booking = await Booking.findById(bookingId);
+  if (!booking) {
+    throw new ApiError(httpStatus.NOT_FOUND, "Booking not found");
+  }
+
+  if (booking.professionalId.toString() !== userId) {
+    throw new ApiError(
+      httpStatus.FORBIDDEN,
+      "You can only finish your own services"
+    );
+  }
+
+  if (booking.status !== "In Progress") {
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      "Only bookings with status 'In Progress' can be finished"
+    );
+  }
+
+  booking.status = "Completed";
+  await booking.save();
+
+  return {
+    _id: booking._id,
+    RequestedStatus: booking.status,
+  };
+};
+
 export const bookingService = {
   createBookingRequest,
   getBookingRequest,
@@ -723,4 +756,5 @@ export const bookingService = {
   getAllRejectScheduleRequest,
   getAllPendingRequest,
   getInProgressWork,
+  finishInProgressWork,
 };

@@ -90,4 +90,10 @@ router.get(
   bookingController.getInProgressWork
 );
 
+router.patch(
+  "/finish-in-progress-work/:bookingId",
+  auth(UserRole.PROFESSIONAL),
+  bookingController.finishInProgressWork
+);
+
 export const bookingRoutes = router;

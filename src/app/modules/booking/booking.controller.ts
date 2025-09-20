@@ -211,6 +211,19 @@ const getInProgressWork = catchAsync(async (req, res) => {
   });
 });
 
+const finishInProgressWork = catchAsync(async (req, res) => {
+  const userId = req.user?._id || req.user?.id || req.user?.userId;
+  const { bookingId } = req.params;
+
+  const booking = await bookingService.finishInProgressWork(userId, bookingId);
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "In Progress Work finished successfully",
+    data: booking,
+  });
+});
+
 export const bookingController = {
   createBookingRequest,
   getBookingRequest,
@@ -225,4 +238,5 @@ export const bookingController = {
   getAllPendingRequest,
   confirmPendingRequest,
   getInProgressWork,
+  finishInProgressWork,
 };
