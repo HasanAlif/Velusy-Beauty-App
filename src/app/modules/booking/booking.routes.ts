@@ -102,4 +102,10 @@ router.get(
   bookingController.getCompletedWork
 );
 
+router.get(
+  "/guest-requests",
+  auth(UserRole.GUEST),
+  bookingController.getGuestRequest
+);
+
 export const bookingRoutes = router;
