@@ -292,6 +292,18 @@ const getCompletedBookingDetails = catchAsync(async (req, res) => {
   });
 });
 
+const getRejectedBookings = catchAsync(async (req, res) => {
+  const userId = req.user?._id || req.user?.id || req.user?.userId;
+
+  const bookings = await bookingService.getRejectedBookings(userId);
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "Rejected bookings retrieved successfully",
+    data: bookings,
+  });
+});
+
 export const bookingController = {
   createBookingRequest,
   getBookingRequest,
@@ -312,4 +324,5 @@ export const bookingController = {
   getGuestRequestDetails,
   guestCompletedBookings,
   getCompletedBookingDetails,
+  getRejectedBookings,
 };
