@@ -134,19 +134,54 @@ const createBookingRequest = async (
       );
     }
 
-    // Check for conflicting bookings at the same time slot
-    const conflictingBooking = await Booking.findOne({
+    // Check for conflicting bookings that overlap with the requested time
+    const existingBookings = await Booking.find({
       professionalId: bookingData.professionalId,
       date: bookingDate,
-      scheduledAt: bookingData.scheduledAt,
       paymentStatus: { $in: ["Requested", "Pending", "In Progress"] },
     }).session(session);
 
-    if (conflictingBooking) {
-      throw new ApiError(
-        httpStatus.CONFLICT,
-        "Professional already has a booking at this time slot"
-      );
+    // Helper function to check if two time ranges overlap
+    const timeRangesOverlap = (range1: string, range2: string) => {
+      if (!range1.includes("-") && !range2.includes("-")) {
+        // Both are single times
+        return range1 === range2;
+      }
+
+      let start1, end1, start2, end2;
+
+      if (range1.includes("-")) {
+        [start1, end1] = range1.split("-").map((t) => t.replace(":", ""));
+      } else {
+        start1 = end1 = range1.replace(":", "");
+      }
+
+      if (range2.includes("-")) {
+        [start2, end2] = range2.split("-").map((t) => t.replace(":", ""));
+      } else {
+        start2 = end2 = range2.replace(":", "");
+      }
+
+      // Convert to minutes for easier comparison
+      const start1Minutes =
+        parseInt(start1.slice(0, 2)) * 60 + parseInt(start1.slice(2));
+      const end1Minutes =
+        parseInt(end1.slice(0, 2)) * 60 + parseInt(end1.slice(2));
+      const start2Minutes =
+        parseInt(start2.slice(0, 2)) * 60 + parseInt(start2.slice(2));
+      const end2Minutes =
+        parseInt(end2.slice(0, 2)) * 60 + parseInt(end2.slice(2));
+
+      return start1Minutes < end2Minutes && start2Minutes < end1Minutes;
+    };
+
+    for (const booking of existingBookings) {
+      if (timeRangesOverlap(bookingData.scheduledAt, booking.scheduledAt)) {
+        throw new ApiError(
+          httpStatus.CONFLICT,
+          "Professional already has a booking at this time slot"
+        );
+      }
     }
 
     // Prepare booking data with service title if not provided
@@ -270,14 +305,34 @@ const confirmBooking = async (userId: string, data: { bookingId: string }) => {
 
 const scheduleRequest = async (
   userId: string,
-  data: { serviceId: string; date: string; time: string; location: string }
+  data: { serviceId: string; date: string; timeRange: string; location: string }
 ) => {
-  const { serviceId, date, time, location } = data;
+  const { serviceId, date, timeRange, location } = data;
 
-  if (!serviceId || !date || !time) {
+  if (!serviceId || !date || !timeRange) {
     throw new ApiError(
       httpStatus.BAD_REQUEST,
-      "serviceId, date, and time are required"
+      "serviceId, date, and timeRange are required"
+    );
+  }
+
+  // Parse time range
+  const timeRangeRegex =
+    /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]-([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
+  if (!timeRangeRegex.test(timeRange)) {
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      "Time range must be in format HH:MM-HH:MM (e.g., 01:00-03:00)"
+    );
+  }
+
+  const [startTime, endTime] = timeRange.split("-");
+
+  // Validate that start time is before end time
+  if (startTime >= endTime) {
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      "Start time must be before end time"
     );
   }
 
@@ -299,19 +354,55 @@ const scheduleRequest = async (
     );
   }
 
-  // Check for existing booking at the same time
-  const existingBooking = await Booking.findOne({
+  // Check for existing bookings that overlap with the requested time range
+  const existingBookings = await Booking.find({
     serviceId,
     date,
-    scheduledAt: time,
-    paymentStatus: { $in: ["Requested", "Pending", "In Progress"] },
+    status: { $in: ["Pending", "In Progress"] },
   });
 
-  if (existingBooking) {
-    throw new ApiError(
-      httpStatus.CONFLICT,
-      "Service is already booked at this time"
-    );
+  // Helper function to check if two time ranges overlap
+  const timeRangesOverlap = (range1: string, range2: string) => {
+    const [start1, end1] = range1.split("-").map((t) => t.replace(":", ""));
+    const [start2, end2] = range2.split("-").map((t) => t.replace(":", ""));
+
+    // Convert to minutes for easier comparison
+    const start1Minutes =
+      parseInt(start1.slice(0, 2)) * 60 + parseInt(start1.slice(2));
+    const end1Minutes =
+      parseInt(end1.slice(0, 2)) * 60 + parseInt(end1.slice(2));
+    const start2Minutes =
+      parseInt(start2.slice(0, 2)) * 60 + parseInt(start2.slice(2));
+    const end2Minutes =
+      parseInt(end2.slice(0, 2)) * 60 + parseInt(end2.slice(2));
+
+    return start1Minutes < end2Minutes && start2Minutes < end1Minutes;
+  };
+
+  for (const booking of existingBookings) {
+    if (booking.scheduledAt.includes("-")) {
+      // Existing booking is a time range
+      if (timeRangesOverlap(timeRange, booking.scheduledAt)) {
+        throw new ApiError(
+          httpStatus.CONFLICT,
+          "Service is already booked during this time range"
+        );
+      }
+    } else {
+      // Existing booking is a single time - check if it falls within the requested range
+      const bookingTime = booking.scheduledAt.replace(":", "");
+      const [startTime, endTime] = timeRange.split("-");
+      const startMinutes = parseInt(startTime.replace(":", ""));
+      const endMinutes = parseInt(endTime.replace(":", ""));
+      const bookingMinutes = parseInt(bookingTime);
+
+      if (bookingMinutes >= startMinutes && bookingMinutes <= endMinutes) {
+        throw new ApiError(
+          httpStatus.CONFLICT,
+          "Service is already booked during this time range"
+        );
+      }
+    }
   }
 
   // Find the provider
@@ -323,8 +414,8 @@ const scheduleRequest = async (
     );
   }
 
-  // Validate that the requested schedule is in the future
-  const requestedDateTime = new Date(`${date}T${time}`);
+  // Validate that the requested schedule is in the future (check start time)
+  const requestedDateTime = new Date(`${date}T${startTime}`);
   const now = new Date();
   if (requestedDateTime <= now) {
     throw new ApiError(
@@ -333,7 +424,7 @@ const scheduleRequest = async (
     );
   }
 
-  // Check provider's schedule
+  // Check provider's schedule for the entire time range
   const schedule = (provider.schedule as any) || {};
   const dayOfWeek = new Date(date)
     .toLocaleString("en-US", { weekday: "long" })
@@ -341,37 +432,57 @@ const scheduleRequest = async (
 
   let isAvailable = false;
 
-  // Check specific date schedule
-  if (schedule[date]) {
-    const timeSlot = schedule[date].find((slot: any) => slot.time === time);
-    if (timeSlot && timeSlot.status === "AVAILABLE") {
-      isAvailable = true;
-    }
-  } else if (schedule[dayOfWeek]) {
-    // Check weekly schedule
-    const weeklySlots = schedule[dayOfWeek];
-    if (Array.isArray(weeklySlots) && weeklySlots.length > 0) {
-      // If it's array of strings like "09:00-17:00"
-      if (typeof weeklySlots[0] === "string") {
-        const range = weeklySlots[0] as string;
-        const [start, end] = range.split("-");
-        if (time >= start && time <= end) {
-          isAvailable = true;
+  // Helper function to check if a time range is fully available
+  const isTimeRangeAvailable = (scheduleData: any, requestedRange: string) => {
+    const [reqStart, reqEnd] = requestedRange.split("-");
+
+    if (scheduleData[date]) {
+      const slots = scheduleData[date];
+      if (Array.isArray(slots)) {
+        for (const slot of slots) {
+          if (slot.status === "AVAILABLE") {
+            if (slot.time.includes("-")) {
+              const [slotStart, slotEnd] = slot.time.split("-");
+              if (slotStart <= reqStart && slotEnd >= reqEnd) {
+                return true;
+              }
+            } else {
+              continue;
+            }
+          }
         }
-      } else {
-        // If it's array of objects
-        const timeSlot = weeklySlots.find((slot: any) => slot.time === time);
-        if (timeSlot && timeSlot.status === "AVAILABLE") {
-          isAvailable = true;
+      }
+    } else if (scheduleData[dayOfWeek]) {
+      const weeklySlots = scheduleData[dayOfWeek];
+      if (Array.isArray(weeklySlots) && weeklySlots.length > 0) {
+        if (typeof weeklySlots[0] === "string") {
+          for (const range of weeklySlots) {
+            const [slotStart, slotEnd] = range.split("-");
+            if (slotStart <= reqStart && slotEnd >= reqEnd) {
+              return true;
+            }
+          }
+        } else {
+          for (const slot of weeklySlots) {
+            if (slot.status === "AVAILABLE" && slot.time.includes("-")) {
+              const [slotStart, slotEnd] = slot.time.split("-");
+              if (slotStart <= reqStart && slotEnd >= reqEnd) {
+                return true;
+              }
+            }
+          }
         }
       }
     }
-  }
+    return false;
+  };
+
+  isAvailable = isTimeRangeAvailable(schedule, timeRange);
 
   if (!isAvailable) {
     throw new ApiError(
       httpStatus.BAD_REQUEST,
-      "Provider is not available at this time"
+      "Provider is not available for the entire requested time range"
     );
   }
 
@@ -381,7 +492,7 @@ const scheduleRequest = async (
     professionalId: providerId,
     serviceId,
     date,
-    scheduledAt: time,
+    scheduledAt: timeRange,
     location,
     status: "Requested",
     serviceName: service.name,
@@ -856,7 +967,10 @@ const getGuestRequestDetails = async (userId: string, bookingId: string) => {
   }
 
   const booking = await Booking.findById(bookingId)
-    .populate("professionalId", "firstName lastName profilePicture status profession")
+    .populate(
+      "professionalId",
+      "firstName lastName profilePicture status profession"
+    )
     .populate("serviceId", "name price photo description");
 
   if (!booking) {

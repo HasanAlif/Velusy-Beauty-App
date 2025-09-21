@@ -738,12 +738,24 @@ const updateSchedule = async (
 
       // Validate each time slot
       timeSlots.forEach((slot) => {
-        const timeRegex = /^\d{2}:\d{2}$/;
+        // Support both single time (HH:MM) and time range (HH:MM-HH:MM) formats
+        const timeRegex = /^(\d{2}:\d{2}|\d{2}:\d{2}-\d{2}:\d{2})$/;
         if (!timeRegex.test(slot.time)) {
           throw new ApiError(
             httpStatus.BAD_REQUEST,
-            `Invalid time format for ${slot.time}. Use HH:MM format.`
+            `Invalid time format for ${slot.time}. Use HH:MM or HH:MM-HH:MM format.`
           );
+        }
+
+        // If it's a time range, validate that start time is before end time
+        if (slot.time.includes("-")) {
+          const [startTime, endTime] = slot.time.split("-");
+          if (startTime >= endTime) {
+            throw new ApiError(
+              httpStatus.BAD_REQUEST,
+              `Invalid time range ${slot.time}. Start time must be before end time.`
+            );
+          }
         }
 
         const validStatuses = [

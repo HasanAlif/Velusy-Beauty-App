@@ -91,7 +91,18 @@ const updateScheduleValidationSchema = z.object({
             z.object({
               time: z
                 .string()
-                .regex(/^\d{2}:\d{2}$/, "Time must be in HH:MM format"),
+                .regex(
+                  /^(\d{2}:\d{2}|\d{2}:\d{2}-\d{2}:\d{2})$/,
+                  "Time must be in HH:MM or HH:MM-HH:MM format"
+                )
+                .refine((timeValue) => {
+                  if (timeValue.includes("-")) {
+                    // Validate time range: start time must be before end time
+                    const [startTime, endTime] = timeValue.split("-");
+                    return startTime < endTime;
+                  }
+                  return true;
+                }, "For time ranges, start time must be before end time"),
               status: z.enum(
                 ["AVAILABLE", "BOOKED", "UNAVAILABLE", "NOT_AVAILABLE"],
                 {
@@ -170,10 +181,7 @@ const professionalProfileValidationSchema = z.object({
   body: z.object({
     fullName: z.string().min(2).max(100).optional(),
     userName: z.string().min(3).max(50).optional(),
-    profession: z
-      .string()
-      .max(100)
-      .optional(),
+    profession: z.string().max(100).optional(),
     personalDescription: z.string().max(1000).optional(),
     serviceType: z.string().max(100).optional(),
     serviceCategory: z.string().max(100).optional(),
@@ -207,8 +215,14 @@ const professionalProfileValidationSchema = z.object({
         z.string(),
         z.array(
           z.object({
-            time: z.string(),
-            status: z.string(),
+            time: z
+              .string()
+              .regex(
+                /^(\d{2}:\d{2}|\d{2}:\d{2}-\d{2}:\d{2})$/,
+                "Time must be in HH:MM or HH:MM-HH:MM format"
+              )
+              .optional(),
+            status: z.string().optional(),
           })
         )
       )

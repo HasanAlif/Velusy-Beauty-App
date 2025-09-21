@@ -92,12 +92,12 @@ const confirmBooking = catchAsync(async (req, res) => {
 
 const scheduleRequest = catchAsync(async (req, res) => {
   const userId = req.user?._id || req.user?.id || req.user?.userId;
-  const { serviceId, date, time, location } = req.body;
+  const { serviceId, date, timeRange, location } = req.body;
 
   const result = await bookingService.scheduleRequest(userId, {
     serviceId,
     date,
-    time,
+    timeRange,
     location,
   });
   sendResponse(res, {
@@ -252,7 +252,10 @@ const getGuestRequestDetails = catchAsync(async (req, res) => {
   const userId = req.user?._id || req.user?.id || req.user?.userId;
   const { bookingId } = req.params;
 
-  const booking = await bookingService.getGuestRequestDetails(userId, bookingId);
+  const booking = await bookingService.getGuestRequestDetails(
+    userId,
+    bookingId
+  );
   sendResponse(res, {
     statusCode: httpStatus.OK,
     success: true,
