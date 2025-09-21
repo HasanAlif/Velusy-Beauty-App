@@ -132,4 +132,10 @@ router.get(
   bookingController.getRejectedBookings
 );
 
+router.get(
+  "/rejected-booking-details/:bookingId",
+  auth(UserRole.GUEST),
+  bookingController.getRejectedBookingsDetails
+);
+
 export const bookingRoutes = router;

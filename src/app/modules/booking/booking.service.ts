@@ -587,7 +587,7 @@ const getIndividualScheduleRequest = async (
     RequestedGuestStatus: guest.status,
     servicePrice: service?.price || null,
     RequestedTime: booking.scheduledAt,
-    RequestedDate: booking.date,
+    RequestedDate: booking.date.toISOString().split("T")[0],
     RequestedLocation: booking.location,
     RequestedStatus: booking.status,
   };
@@ -992,7 +992,7 @@ const getGuestRequestDetails = async (userId: string, bookingId: string) => {
     ProviderStatus: professional.status,
     servicePrice: service?.price || null,
     RequestedTime: booking.scheduledAt,
-    RequestedDate: booking.date,
+    RequestedDate: booking.date.toISOString().split("T")[0],
     RequestedLocation: booking.location,
     RequestedStatus: booking.status,
   };
@@ -1130,6 +1130,48 @@ const getRejectedBookings = async (userId: string) => {
   return simplifiedBookings;
 };
 
+const getRejectedBookingsDetails = async (
+  userId: string,
+  bookingId: string
+) => {
+  if (!mongoose.Types.ObjectId.isValid(bookingId)) {
+    throw new ApiError(httpStatus.BAD_REQUEST, "Invalid booking ID");
+  }
+
+  const booking = await Booking.findById(bookingId)
+    .populate("guestId", "firstName lastName profilePicture")
+    .populate(
+      "professionalId",
+      "firstName lastName profilePicture profession status"
+    )
+    .populate("serviceId", "name price photo description");
+
+  if (!booking) {
+    throw new ApiError(httpStatus.NOT_FOUND, "Booking not found");
+  }
+
+  const service = booking.serviceId as any;
+  const professional = booking.professionalId as any;
+
+  return {
+    _id: booking._id,
+    serviceImage: service?.photo || null,
+    serviceName: service?.name || null,
+    serviceDescription: service?.description || null,
+    professionalName: `${professional?.firstName || ""} ${
+      professional?.lastName || ""
+    }`.trim(),
+    professionalProfilePicture: professional?.profilePicture || null,
+    professionalProfession: professional?.profession || null,
+    professionalStatus: professional?.status || null,
+    servicePrice: service?.price || null,
+    serviceTime: booking.scheduledAt,
+    serviceDate: booking.date.toISOString().split("T")[0],
+    serviceLocation: booking.location,
+    status: booking.status,
+  };
+};
+
 export const bookingService = {
   createBookingRequest,
   getBookingRequest,
@@ -1151,4 +1193,5 @@ export const bookingService = {
   guestCompletedBookings,
   getCompletedBookingDetails,
   getRejectedBookings,
+  getRejectedBookingsDetails,
 };
