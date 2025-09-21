@@ -248,6 +248,19 @@ const getGuestRequest = catchAsync(async (req, res) => {
   });
 });
 
+const getGuestRequestDetails = catchAsync(async (req, res) => {
+  const userId = req.user?._id || req.user?.id || req.user?.userId;
+  const { bookingId } = req.params;
+
+  const booking = await bookingService.getGuestRequestDetails(userId, bookingId);
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "Guest booking request details retrieved successfully",
+    data: booking,
+  });
+});
+
 export const bookingController = {
   createBookingRequest,
   getBookingRequest,
@@ -265,4 +278,5 @@ export const bookingController = {
   finishInProgressWork,
   getCompletedWork,
   getGuestRequest,
+  getGuestRequestDetails,
 };

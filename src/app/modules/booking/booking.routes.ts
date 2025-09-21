@@ -108,4 +108,10 @@ router.get(
   bookingController.getGuestRequest
 );
 
+router.get(
+  "/guest-requests/:bookingId",
+  auth(UserRole.GUEST),
+  bookingController.getGuestRequestDetails
+);
+
 export const bookingRoutes = router;
