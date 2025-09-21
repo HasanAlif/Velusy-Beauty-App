@@ -998,6 +998,53 @@ const getGuestRequestDetails = async (userId: string, bookingId: string) => {
   };
 };
 
+const guestCompletedBookings = async (userId: string) => {
+  const bookings = await Booking.find({
+    guestId: userId,
+    status: "Completed",
+  })
+    .populate("guestId", "latitude longitude")
+    .populate("professionalId", "latitude longitude")
+    .populate("serviceId", "name price photo description")
+    .sort({ createdAt: -1 });
+
+  const simplifiedBookings = bookings.map((booking: any) => {
+    const bookingObj = booking.toObject();
+    const guest = bookingObj.guestId as any;
+    const professional = bookingObj.professionalId as any;
+    const service = bookingObj.serviceId as any;
+
+    let distance = null;
+    if (
+      guest &&
+      professional &&
+      guest.latitude &&
+      guest.longitude &&
+      professional.latitude &&
+      professional.longitude
+    ) {
+      const calculatedDistance = haversineDistance(
+        guest.latitude,
+        guest.longitude,
+        professional.latitude,
+        professional.longitude
+      );
+      distance = Math.round(calculatedDistance * 100) / 100;
+    }
+
+    return {
+      _id: bookingObj._id,
+      serviceName: service?.name || null,
+      serviceImage: service?.photo || null,
+      servicePrice: service?.price || null,
+      distance: distance,
+      Status: booking.status,
+    };
+  });
+
+  return simplifiedBookings;
+};
+
 export const bookingService = {
   createBookingRequest,
   getBookingRequest,
@@ -1016,4 +1063,5 @@ export const bookingService = {
   getCompletedWork,
   getGuestRequest,
   getGuestRequestDetails,
+  guestCompletedBookings,
 };

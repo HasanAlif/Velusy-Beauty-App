@@ -114,4 +114,10 @@ router.get(
   bookingController.getGuestRequestDetails
 );
 
+router.get(
+  "/guest-completed-bookings",
+  auth(UserRole.GUEST),
+  bookingController.guestCompletedBookings
+);
+
 export const bookingRoutes = router;

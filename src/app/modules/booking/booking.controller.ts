@@ -264,6 +264,18 @@ const getGuestRequestDetails = catchAsync(async (req, res) => {
   });
 });
 
+const guestCompletedBookings = catchAsync(async (req, res) => {
+  const userId = req.user?._id || req.user?.id || req.user?.userId;
+
+  const bookings = await bookingService.guestCompletedBookings(userId);
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "Guest completed bookings retrieved successfully",
+    data: bookings,
+  });
+});
+
 export const bookingController = {
   createBookingRequest,
   getBookingRequest,
@@ -282,4 +294,5 @@ export const bookingController = {
   getCompletedWork,
   getGuestRequest,
   getGuestRequestDetails,
+  guestCompletedBookings,
 };
