@@ -139,7 +139,7 @@ const createBookingRequest = async (
       professionalId: bookingData.professionalId,
       date: bookingDate,
       scheduledAt: bookingData.scheduledAt,
-      status: { $in: ["Requested", "Pending", "InProgress"] },
+      paymentStatus: { $in: ["Requested", "Pending", "In Progress"] },
     }).session(session);
 
     if (conflictingBooking) {
@@ -152,7 +152,7 @@ const createBookingRequest = async (
     // Prepare booking data with service title if not provided
     bookingData.serviceTitle = bookingData.serviceTitle || service.name;
     bookingData.extrasPrice = bookingData.extrasPrice || 0;
-    bookingData.status = "Requested"; // Ensure status is set to default
+    bookingData.paymentStatus = "Requested"; // Ensure status is set to default
 
     // Create the booking
     const result = await Booking.create([bookingData], { session });
@@ -238,7 +238,7 @@ const bookNow = async (userId: string, data: { bookingId: string }) => {
     );
   }
 
-  bookingData.status = "Pending";
+  bookingData.paymentStatus = "Pending";
   const result = await bookingData.save();
 
   return result;
@@ -262,7 +262,7 @@ const confirmBooking = async (userId: string, data: { bookingId: string }) => {
     );
   }
 
-  bookingData.status = "In Progress";
+  bookingData.paymentStatus = "In Progress";
   const result = await bookingData.save();
 
   return result;
@@ -304,7 +304,7 @@ const scheduleRequest = async (
     serviceId,
     date,
     scheduledAt: time,
-    status: { $in: ["Requested", "Pending", "InProgress"] },
+    paymentStatus: { $in: ["Requested", "Pending", "In Progress"] },
   });
 
   if (existingBooking) {
@@ -320,6 +320,16 @@ const scheduleRequest = async (
     throw new ApiError(
       httpStatus.NOT_FOUND,
       "Provider not found or not a professional"
+    );
+  }
+
+  // Validate that the requested schedule is in the future
+  const requestedDateTime = new Date(`${date}T${time}`);
+  const now = new Date();
+  if (requestedDateTime <= now) {
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      "Schedule request must be for a future date and time"
     );
   }
 
