@@ -1045,6 +1045,44 @@ const guestCompletedBookings = async (userId: string) => {
   return simplifiedBookings;
 };
 
+const getCompletedBookingDetails = async (
+  userId: string,
+  bookingId: string
+) => {
+  if (!mongoose.Types.ObjectId.isValid(bookingId)) {
+    throw new ApiError(httpStatus.BAD_REQUEST, "Invalid booking ID");
+  }
+
+  const booking = await Booking.findById(bookingId)
+    .populate("guestId", "firstName lastName profilePicture")
+    .populate("professionalId", "firstName lastName profilePicture")
+    .populate("serviceId", "name price photo description");
+
+  if (!booking) {
+    throw new ApiError(httpStatus.NOT_FOUND, "Booking not found");
+  }
+
+  const service = booking.serviceId as any;
+  const guest = booking.guestId as any;
+  const professional = booking.professionalId as any;
+
+  return {
+    _id: booking._id,
+    serviceImage: service?.photo || null,
+    serviceName: service?.name || null,
+    serviceDescription: service?.description || null,
+    professionalName: `${professional?.firstName || ""} ${
+      professional?.lastName || ""
+    }`.trim(),
+    professionalProfilePicture: professional?.profilePicture || null,
+    professionalProfession: professional?.profession || null,
+    servicePrice: service?.price || null,
+    serviceTime: booking.scheduledAt,
+    serviceLocation: booking.location,
+    status: booking.status,
+  };
+};
+
 export const bookingService = {
   createBookingRequest,
   getBookingRequest,
@@ -1064,4 +1102,5 @@ export const bookingService = {
   getGuestRequest,
   getGuestRequestDetails,
   guestCompletedBookings,
+  getCompletedBookingDetails,
 };
